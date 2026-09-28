@@ -35,8 +35,8 @@ fn main() {
     scene.load_textures(&mut rl, &thread);
 
     let mut camera = Camera::new(
-        Vector3::new(1.0, 5.5, 9.5),
-        Vector3::new(2.0, 2.3, 2.8),
+        Vector3::new(-2.8, 3.6, 2.8),
+        Vector3::new(-0.5, 3.1, -0.2),
         Vector3::new(0.0, 1.0, 0.0),
     );
 
