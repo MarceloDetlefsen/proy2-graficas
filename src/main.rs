@@ -79,10 +79,10 @@ fn main() {
             Vector3::new(0.0, 1.0, 0.0),
         )
     } else if gem_view {
-        // Primer plano de una gema mostrando refracción con la fogata y el suelo iluminado detrás
+        // Primer plano de los cristales mostrando refracción con la llama y brasas detrás
         Camera::new(
-            Vector3::new(1.55, 3.65, 1.35),
-            Vector3::new(0.50, 3.20, 0.40),
+            Vector3::new(0.00, 3.42, 2.15),
+            Vector3::new(0.00, 3.46, 0.00),
             Vector3::new(0.0, 1.0, 0.0),
         )
     } else if smoke_view {
@@ -217,8 +217,9 @@ fn main() {
             let start = std::time::Instant::now();
             render(&scene, &camera, &mut framebuffer, 1);
             let elapsed = start.elapsed();
+            let total_billboards = scene.billboards.len() + scene.grass_billboards.len() + scene.smoke_billboards.len();
             println!("Render (reposo full res): {:.2} ms (cubos: {}, billboards: {}, ground_sprites: {})",
-                elapsed.as_secs_f64() * 1000.0, scene.cubes.len(), scene.billboards.len(), scene.ground_sprites.len());
+                elapsed.as_secs_f64() * 1000.0, scene.cubes.len(), total_billboards, scene.ground_sprites.len());
             let _ = render_texture.update_texture(framebuffer_as_bytes(&framebuffer));
             needs_fullres = false;
             is_moving = false;
