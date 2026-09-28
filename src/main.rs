@@ -53,13 +53,22 @@ fn main() {
     let headless = args.iter().any(|a| a == "--screenshot");
     let rotated = args.iter().any(|a| a == "--rotated");
     let elevated = args.iter().any(|a| a == "--elevated");
+    let closeup = args.iter().any(|a| a == "--closeup");
     let moving_mode = args.iter().any(|a| a == "--moving");
 
     // 2. Crear la escena y cargar texturas en CPU
     let mut scene = Scene::campfire_diorama();
     scene.load_textures(&mut rl, &thread);
 
-    let mut camera = if elevated {
+    let mut camera = if closeup {
+        // Primer plano de Marle acostada con cámara rotada ~90 grados
+        let ground_y = scene::terrain_height_at(&scene.cubes, -1.35, 1.85);
+        Camera::new(
+            Vector3::new(-4.2, ground_y + 2.4, 1.85),
+            Vector3::new(-1.35, ground_y + 0.1, 1.85),
+            Vector3::new(0.0, 1.0, 0.0),
+        )
+    } else if elevated {
         Camera::new(
             Vector3::new(2.5, 12.5, 10.5),
             Vector3::new(0.0, 2.5, 0.0),
@@ -189,7 +198,9 @@ fn main() {
                         img.draw_pixel(x, y, framebuffer[(y * WIDTH + x) as usize]);
                     }
                 }
-                let out_file = if elevated {
+                let out_file = if closeup {
+                    "screenshot_closeup.png"
+                } else if elevated {
                     "screenshot_elevated.png"
                 } else if rotated {
                     "screenshot_rotated.png"

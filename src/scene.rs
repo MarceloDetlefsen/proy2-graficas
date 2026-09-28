@@ -9,6 +9,7 @@ use crate::procedural;
 pub struct Scene {
     pub cubes: Vec<Cube>,
     pub billboards: Vec<Billboard>,
+    pub ground_sprites: Vec<crate::billboard::GroundSprite>,
     pub lights: Vec<Light>,
     pub skybox: Skybox,
     pub textures: crate::texture::TextureManager,
@@ -126,15 +127,15 @@ impl Scene {
             ).without_shadow().with_tile_uv(false));
         }
 
-        // --- Humo: 7 cubos grises translúcidos (transparency ~0.75, IOR 1.0) subiendo hasta ~6 bloques ---
+        // --- Humo: 7 cubos grises translúcidos subiendo hasta ~6 bloques, creciendo progresivamente ---
         let smoke_steps = [
-            (-0.04, ground_y + 1.45, 0.02, 0.35),
-            (0.06, ground_y + 2.10, 0.07, 0.45),
-            (0.14, ground_y + 2.80, 0.14, 0.55),
-            (0.25, ground_y + 3.55, 0.22, 0.65),
-            (0.38, ground_y + 4.35, 0.32, 0.75),
-            (0.52, ground_y + 5.18, 0.44, 0.85),
-            (0.68, ground_y + 6.05, 0.58, 0.95),
+            (-0.04, ground_y + 1.45, 0.02, 0.45),
+            (0.06, ground_y + 2.15, 0.07, 0.60),
+            (0.14, ground_y + 2.90, 0.14, 0.78),
+            (0.25, ground_y + 3.75, 0.22, 0.98),
+            (0.38, ground_y + 4.65, 0.32, 1.18),
+            (0.52, ground_y + 5.60, 0.44, 1.38),
+            (0.68, ground_y + 6.60, 0.58, 1.58),
         ];
         for &(sx, sy, sz, ss) in &smoke_steps {
             cubes.push(Cube::new_box(
@@ -144,7 +145,7 @@ impl Scene {
             ).without_shadow().with_tile_uv(false));
         }
 
-        // --- Pasto amarillo: ~36 mechones dispersos en círculo de paja y borde de clarería ---
+        // --- Pasto verde-amarillo: mechones en grupos de 3 hojas finas (~0.08) ---
         let tuft_coords = [
             (-1.4, 0.6), (-0.8, -1.5), (1.5, -0.9), (0.7, 1.6),
             (-1.8, -1.1), (1.9, 0.8), (-0.5, 1.8), (1.6, -1.6),
@@ -158,12 +159,53 @@ impl Scene {
         ];
         for &(tx, tz) in &tuft_coords {
             let ty = terrain_height_at(&cubes, tx, tz);
-            cubes.push(Cube::new_box(
-                Vector3::new(tx - 0.075, ty, tz - 0.075),
-                Vector3::new(0.15, 0.40, 0.15),
-                mats.tuft,
-            ).without_shadow().with_tile_uv(false));
+            let blade_offsets = [
+                (-0.04, -0.03, 0.46),
+                (0.04, -0.02, 0.35),
+                (0.00, 0.04, 0.27),
+            ];
+            for &(bx, bz, bh) in &blade_offsets {
+                cubes.push(Cube::new_box(
+                    Vector3::new(tx + bx - 0.04, ty, tz + bz - 0.04),
+                    Vector3::new(0.08, bh, 0.08),
+                    mats.tuft,
+                ).without_shadow().with_tile_uv(false));
+            }
         }
+
+        // --- Troncos horizontales para sentarse (~2x0.5x0.5 con textura bark y mapa normal) ---
+        // Log 1: Detrás de la fogata frente a Robo y Lucca
+        cubes.push(Cube::new_box(
+            Vector3::new(-1.10, ground_y, -1.75),
+            Vector3::new(2.20, 0.45, 0.50),
+            mats.bark,
+        ));
+        // Log 2: Costado izquierdo junto a Frog
+        cubes.push(Cube::new_box(
+            Vector3::new(-1.85, ground_y, -0.90),
+            Vector3::new(0.50, 0.45, 1.80),
+            mats.bark,
+        ));
+        // Log 3: Costado derecho junto a Ayla
+        cubes.push(Cube::new_box(
+            Vector3::new(1.35, ground_y, -0.90),
+            Vector3::new(0.50, 0.45, 1.80),
+            mats.bark,
+        ));
+        // Log 4: Junto al árbol de Magus
+        cubes.push(Cube::new_box(
+            Vector3::new(3.00, ground_y, -2.40),
+            Vector3::new(1.80, 0.45, 0.50),
+            mats.bark,
+        ));
+
+        // --- Puente de tablones donde el camino cruza el arroyo (elevado ~0.08, agua visible a ambos lados) ---
+        let bridge_y = terrain_height_at(&cubes, 0.5, 4.0);
+        cubes.push(Cube::new_box(
+            Vector3::new(-0.50, bridge_y + 0.08, 4.0),
+            Vector3::new(2.00, 0.22, 2.00),
+            mats.planks,
+        ));
 
         // --- Cristales/gemas tirados cerca de la fogata (refracción + reflexión) ---
         for &(x, z) in &[(-2.0, 0.5), (2.2, -0.8), (0.7, 1.7)] {
@@ -176,41 +218,69 @@ impl Scene {
             Light::sky_fill(Vector3::new(0.0, 15.0, 0.0)),
         ];
 
-        // --- Personajes (7 miembros de Chrono Trigger en círculo alrededor de la fogata) ---
-        let party_defs: [(&str, f32); 7] = [
-            ("assets/party/Lucca.png", 0.90),
-            ("assets/party/Chrono.png", 1.00),
-            ("assets/party/Magus.png", 1.05),
-            ("assets/party/Ayla.png", 1.00),
-            ("assets/party/Robo.png", 1.10),
-            ("assets/party/Frog.png", 0.75),
-            ("assets/party/Marle.png", 0.95),
+        // --- Personajes de pie (Billboards: Robo, Lucca, Frog, Ayla, Magus) ---
+        let base_height = 1.8f32;
+        let mut billboards = Vec::new();
+
+        let standing_party = [
+            ("assets/party/Robo.png", -0.75, -2.20, 1.10),
+            ("assets/party/Lucca.png", 0.55, -2.20, 0.90),
+            ("assets/party/Frog.png", -2.40, -0.10, 0.75),
+            ("assets/party/Ayla.png", 2.35, -0.10, 1.00),
+            ("assets/party/Magus.png", 4.20, -1.60, 1.05),
         ];
 
-        let base_height = 1.8f32;
-        let radius = 3.0f32;
-        let base_angle = 17.1f32.to_radians();
-        let angle_step = std::f32::consts::TAU / 7.0;
-
-        let mut billboards = Vec::new();
-        for (i, &(tex, mult)) in party_defs.iter().enumerate() {
-            let angle = base_angle + (i as f32) * angle_step;
-            let x = radius * angle.sin();
-            let z = radius * angle.cos();
+        for &(tex, x, z, mult) in &standing_party {
             let y = terrain_height_at(&cubes, x, z);
-
             let height = base_height * mult;
             let aspect = get_png_aspect_ratio(tex);
             let width = height * aspect;
-
             billboards.push(Billboard::new(Vector3::new(x, y, z), width, height, tex));
         }
+
+        // --- Personajes acostados al frente (GroundSprite: Marle y Chrono) ---
+        let mut ground_sprites = Vec::new();
+
+        // Chrono: al frente a la derecha, acostado con la cabeza hacia el fuego
+        let chrono_tex = "assets/party/Chrono.png";
+        let chrono_h = base_height * 1.00;
+        let chrono_w = chrono_h * get_png_aspect_ratio(chrono_tex);
+        let chrono_x = 1.35f32;
+        let chrono_z = 1.85f32;
+        let chrono_y = terrain_height_at(&cubes, chrono_x, chrono_z) + 0.03;
+        let to_fire_chrono = Vector3::new(-chrono_x, 0.0, -chrono_z).normalized();
+        let angle_chrono = to_fire_chrono.x.atan2(to_fire_chrono.z);
+        ground_sprites.push(crate::billboard::GroundSprite::new(
+            Vector3::new(chrono_x, chrono_y, chrono_z),
+            chrono_w,
+            chrono_h,
+            angle_chrono,
+            chrono_tex,
+        ));
+
+        // Marle: al frente a la izquierda, acostada con la cabeza hacia el fuego
+        let marle_tex = "assets/party/Marle.png";
+        let marle_h = base_height * 0.95;
+        let marle_w = marle_h * get_png_aspect_ratio(marle_tex);
+        let marle_x = -1.35f32;
+        let marle_z = 1.85f32;
+        let marle_y = terrain_height_at(&cubes, marle_x, marle_z) + 0.03;
+        let to_fire_marle = Vector3::new(-marle_x, 0.0, -marle_z).normalized();
+        let angle_marle = to_fire_marle.x.atan2(to_fire_marle.z);
+        ground_sprites.push(crate::billboard::GroundSprite::new(
+            Vector3::new(marle_x, marle_y, marle_z),
+            marle_w,
+            marle_h,
+            angle_marle,
+            marle_tex,
+        ));
 
         let grid = crate::grid::VoxelGrid::build(&cubes);
 
         Scene {
             cubes,
             billboards,
+            ground_sprites,
             lights,
             skybox: Skybox::night(),
             textures: crate::texture::TextureManager::new(),
@@ -237,6 +307,7 @@ impl Scene {
             "assets/water.png",
             "assets/straw.png",
             "assets/tuft.png",
+            "assets/planks.png",
             "assets/party/Chrono.png",
             "assets/party/Marle.png",
             "assets/party/Lucca.png",
