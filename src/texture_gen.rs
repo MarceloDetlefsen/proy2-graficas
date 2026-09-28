@@ -24,6 +24,7 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/gem.png", gen_gem_texture);
     generate_if_missing("assets/water.png", gen_water_texture);
     generate_if_missing("assets/straw.png", gen_straw_texture);
+    generate_if_missing("assets/tuft.png", gen_tuft_texture);
 
     generate_if_missing("assets/party/hero.png", gen_hero_sprite);
     generate_if_missing("assets/party/mage.png", gen_mage_sprite);
@@ -259,6 +260,32 @@ fn gen_straw_texture() -> Image {
                 Color::new(135, 95, 35, 255)  // Sombra entre fibras
             } else {
                 Color::new(165, 125, 50, 255) // Base paja
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_tuft_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(185, 140, 50, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let h = hash2d(x, y, 404);
+            // Hebras verticales de pasto seco/amarillo con puntas doradas claras
+            let vertical_blade = (x % 3 == 0) || (x % 5 == 1);
+            let c = if vertical_blade && (y < 24 || h > 0.55) {
+                if y < 10 || h > 0.8 {
+                    Color::new(245, 215, 85, 255) // Punta dorada iluminada
+                } else {
+                    Color::new(220, 175, 65, 255) // Tallo dorado brillante
+                }
+            } else if h < 0.15 || (y > 24 && h < 0.4) {
+                Color::new(130, 85, 30, 255)   // Sombra ocre/marrón en la raíz
+            } else if h > 0.75 {
+                Color::new(205, 160, 60, 255)  // Resplandor cálido
+            } else {
+                Color::new(175, 130, 48, 255)  // Base pasto seco amarillo
             };
             img.draw_pixel(x, y, c);
         }

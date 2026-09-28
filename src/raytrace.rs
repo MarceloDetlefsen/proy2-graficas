@@ -78,8 +78,8 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     // Sombreado de billboard
     if let Some((_bb, sprite_color, u, _v)) = hit_billboard {
         let hit_point = origin + dir * closest_t;
-        // Luz ambiental azul noche (estilo Chrono Trigger)
-        let ambient_color = Vector3::new(0.10, 0.14, 0.30);
+        // Luz ambiental azul noche (estilo Chrono Trigger, +20% para leer relieve)
+        let ambient_color = Vector3::new(0.12, 0.17, 0.36);
         let ambient = mul_vec3(sprite_color, ambient_color);
         let mut diffuse = Vector3::zero();
 
@@ -186,8 +186,8 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             };
 
             let view_dir = -dir;
-            // Luz ambiental azul noche multiplicada por el albedo de cada superficie
-            let ambient_color = Vector3::new(0.10, 0.14, 0.30);
+            // Luz ambiental azul noche multiplicada por el albedo de cada superficie (+20%)
+            let ambient_color = Vector3::new(0.12, 0.17, 0.36);
             let ambient = mul_vec3(base_color, ambient_color);
             let mut diffuse_specular = Vector3::zero();
 

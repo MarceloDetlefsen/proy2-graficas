@@ -88,8 +88,15 @@ pub struct SceneMaterials {
     pub dirt: Material,
     pub stone: Material,
     pub bark: Material,      // tronco de árbol -> mapa normal
-    pub leaves: Material,    // hojas
+    pub leaves: Material,    // hojas oscuras azul-verdosas
+    pub leaves_alt: Material,// variación de hojas
     pub campfire: Material,  // fogata -> emisivo
+    pub fire_base: Material, // base de fogata naranja intenso
+    pub fire_mid: Material,  // centro de fuego dorado
+    pub fire_top: Material,  // punta de fuego amarilla
+    pub ember: Material,     // brasas incandescentes
+    pub smoke: Material,     // humo translúcido
+    pub tuft: Material,      // mechón de pasto amarillo
     pub gem: Material,       // cristal -> refracción + reflexión
     pub water: Material,     // charco -> reflexión (+ refracción opcional)
     pub straw: Material,     // círculo de paja alrededor de la fogata
@@ -112,12 +119,36 @@ impl SceneMaterials {
                 .with_texture("assets/bark.png")
                 .with_normal_map("assets/bark_normal.png"),
 
-            leaves: Material::new(Vector3::new(0.10, 0.30, 0.08), 2.0)
+            leaves: Material::new(Vector3::new(0.08, 0.22, 0.16), 2.0)
+                .with_texture("assets/leaves.png"),
+
+            leaves_alt: Material::new(Vector3::new(0.06, 0.18, 0.14), 2.0)
                 .with_texture("assets/leaves.png"),
 
             campfire: Material::new(Vector3::new(1.0, 0.55, 0.1), 10.0)
                 .with_texture("assets/fire.png")
                 .with_emission(Vector3::new(1.0, 0.5, 0.1)),
+
+            fire_base: Material::new(Vector3::new(1.0, 0.38, 0.06), 8.0)
+                .with_texture("assets/fire.png")
+                .with_emission(Vector3::new(1.1, 0.42, 0.08)),
+
+            fire_mid: Material::new(Vector3::new(1.0, 0.65, 0.15), 10.0)
+                .with_texture("assets/fire.png")
+                .with_emission(Vector3::new(1.2, 0.70, 0.18)),
+
+            fire_top: Material::new(Vector3::new(1.0, 0.90, 0.30), 12.0)
+                .with_texture("assets/fire.png")
+                .with_emission(Vector3::new(1.3, 1.00, 0.35)),
+
+            ember: Material::new(Vector3::new(1.0, 0.75, 0.20), 10.0)
+                .with_emission(Vector3::new(1.4, 0.75, 0.15)),
+
+            smoke: Material::new(Vector3::new(0.55, 0.58, 0.65), 1.0)
+                .with_refraction(0.75, 1.0),
+
+            tuft: Material::new(Vector3::new(0.85, 0.70, 0.30), 2.0)
+                .with_texture("assets/tuft.png"),
 
             gem: Material::new(Vector3::new(0.6, 0.9, 1.0), 60.0)
                 .with_texture("assets/gem.png")
