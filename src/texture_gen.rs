@@ -36,7 +36,10 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/mushroom.png", gen_mushroom_texture);
     generate_if_missing("assets/cloth.png", gen_cloth_texture);
     generate_if_missing("assets/tent.png", gen_tent_texture);
-    generate_if_missing("assets/gate_vortex.png", gen_gate_vortex_texture);
+    
+    // Regenerar siempre el vórtice del portal con sus brazos en espiral y anillo fino
+    let vortex_img = gen_gate_vortex_texture();
+    vortex_img.export_image("assets/gate_vortex.png");
 
     process_party_sprites();
 }
@@ -895,7 +898,7 @@ fn gen_tent_texture() -> Image {
     img
 }
 
-/// Remolino cósmico del portal del tiempo (Gate, 32x32 px con espiral azul-cian limpia, sin marrones)
+/// Remolino cósmico del portal del tiempo (Gate, 32x32 px con 2-3 brazos en espiral, centro cian claro, anillo azul fino y bordes en alpha 0)
 fn gen_gate_vortex_texture() -> Image {
     let mut img = Image::gen_image_color(32, 32, Color::BLANK);
     let cx = 15.5f32;
@@ -906,28 +909,38 @@ fn gen_gate_vortex_texture() -> Image {
             let dx = x as f32 + 0.5 - cx;
             let dy = y as f32 + 0.5 - cy;
             let dist = (dx * dx + dy * dy).sqrt();
-            if dist > 14.5 {
+            if dist > 14.8 {
                 continue;
             }
 
             let angle = dy.atan2(dx);
-            let spiral = (angle * 3.0 + dist * 0.8).sin();
+            // 2 a 3 brazos en espiral cósmica
+            let spiral = (angle * 2.8 + dist * 0.70).sin();
             let dither = (x + y) % 2 == 0;
 
             // Borde exterior con dithering transparente (alpha 0)
-            if dist > 12.2 && !dither {
+            if dist > 13.2 && !dither {
                 continue;
             }
 
-            // Exclusivamente gama celeste y cian puro saturado (sin núcleo blanco ni marrones)
-            let c = if dist < 3.2 {
-                Color::new(45, 215, 255, 255)  // Núcleo cian saturado resplandeciente (sin blanco)
-            } else if spiral > 0.25 {
-                Color::new(30, 195, 255, 255)  // Brazo espiral celeste brillante
+            // Anillo exterior fino azul oscuro (dist entre 12.0 y 14.0)
+            let is_outer_ring = dist >= 12.0 && dist <= 14.0 && spiral < 0.25;
+
+            let c = if dist < 2.8 {
+                // Centro cian claro luminoso (sin blanco puro)
+                Color::new(120, 235, 255, 255)
+            } else if is_outer_ring {
+                // Anillo azul oscuro fino
+                Color::new(12, 45, 115, 255)
+            } else if spiral > 0.22 {
+                // Brazos en espiral: cian saturado brillante
+                Color::new(20, 205, 255, 255)
             } else if spiral > -0.28 {
-                Color::new(18, 150, 245, 255)  // Flujo cian intermedio
+                // Flujo cian intermedio saturado
+                Color::new(12, 145, 240, 255)
             } else {
-                Color::new(10, 95, 205, 255)   // Azul cósmico puro del vórtice
+                // Azul cósmico de contraste
+                Color::new(10, 75, 185, 255)
             };
             img.draw_pixel(x, y, c);
         }

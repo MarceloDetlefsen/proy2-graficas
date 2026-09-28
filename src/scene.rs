@@ -32,6 +32,7 @@ pub struct Scene {
     pub textures: crate::texture::TextureManager,
     pub grid: crate::grid::VoxelGrid,
     pub use_normal_maps: bool,
+    pub use_reflections: bool,
     pub tree_cutaway_dist: Option<f32>,
     pub camera_forward: Vector3,
     pub camera_right: Vector3,
@@ -143,7 +144,8 @@ impl Scene {
             // Norte (z ~ -8.5)
             (-6.2, -8.6, 8.5f32),
             (-2.0, -8.7, 8.0f32),
-            (1.5, -8.4, 8.2f32),
+            (0.2, -8.5, 8.0f32),
+            (1.9, -8.5, 8.0f32),
             (6.0, -8.7, 8.8f32),
             // Oeste (x ~ -8.5)
             (-8.6, -6.2, 8.0f32),
@@ -486,16 +488,25 @@ impl Scene {
                 .with_blob_shadow(true),
         );
 
-        // --- Easter Egg: Portal escondido (Gate Vortex) entre troncos perimetrales al fondo (-2.10, -8.60) ---
-        let vortex_size = 0.80f32;
+        // --- Easter Egg: Portal escondido (Gate Vortex) entre troncos perimetrales al fondo (1.05, -8.65) ---
+        let vortex_size = 1.10f32;
+        let vortex_x = 1.05f32;
+        let vortex_z = -8.65f32;
+        let vortex_y = terrain_only_height_at(&cubes, vortex_x, vortex_z);
         party_billboards.push(
             Billboard::new(
-                Vector3::new(-2.10, 4.50, -8.60),
+                Vector3::new(vortex_x, vortex_y, vortex_z),
                 vortex_size,
                 vortex_size,
                 "assets/gate_vortex.png",
             ).with_emission(Vector3::new(0.03, 0.12, 0.22)),
         );
+        // Pared de corteza/roca de respaldo detrás del portal para ocluir vistas traseras de órbita
+        cubes.push(Cube::new_box(
+            Vector3::new(0.40, vortex_y, -9.15),
+            Vector3::new(1.30, 4.0, 0.50),
+            mats.bark,
+        ));
 
         // --- 3. Mechones de pasto en la periferia de la clarería (~20 billboards grass_tuft) ---
         let mut grass_billboards = Vec::new();
@@ -600,6 +611,7 @@ impl Scene {
             textures: crate::texture::TextureManager::new(),
             grid,
             use_normal_maps: true,
+            use_reflections: true,
             tree_cutaway_dist: None,
             camera_forward: Vector3::new(0.0, 0.0, -1.0),
             camera_right: Vector3::new(1.0, 0.0, 0.0),
