@@ -5,26 +5,28 @@ struct CpuTexture {
     width: i32,
     height: i32,
     pixels: Vec<Vector3>, // Valores RGB normalizados [0,1], usados por el raytracer en CPU
+    alphas: Vec<f32>,     // Canal alfa normalizado [0,1] para recortes de sprites
 }
 
 impl CpuTexture {
     fn from_image(image: &Image) -> Self {
         let colors = image.get_image_data(); // Vec<Color>
-        let pixels = colors
-            .iter()
-            .map(|c| {
-                Vector3::new(
-                    c.r as f32 / 255.0,
-                    c.g as f32 / 255.0,
-                    c.b as f32 / 255.0,
-                )
-            })
-            .collect();
+        let mut pixels = Vec::with_capacity(colors.len());
+        let mut alphas = Vec::with_capacity(colors.len());
+        for c in colors.iter() {
+            pixels.push(Vector3::new(
+                c.r as f32 / 255.0,
+                c.g as f32 / 255.0,
+                c.b as f32 / 255.0,
+            ));
+            alphas.push(c.a as f32 / 255.0);
+        }
 
         CpuTexture {
             width: image.width,
             height: image.height,
             pixels,
+            alphas,
         }
     }
 }
@@ -100,6 +102,22 @@ impl TextureManager {
             self.get_pixel_color(path, tx, ty)
         } else {
             Vector3::one()
+        }
+    }
+
+    /// Muestra color RGB y canal Alfa [0, 1] en coordenadas UV.
+    pub fn sample_rgba(&self, path: &str, u: f32, v: f32) -> (Vector3, f32) {
+        if let Some(cpu_texture) = self.cpu_textures.get(path) {
+            let tx = ((u.clamp(0.0, 1.0)) * (cpu_texture.width - 1) as f32) as u32;
+            let ty = ((v.clamp(0.0, 1.0)) * (cpu_texture.height - 1) as f32) as u32;
+            let x = tx.min(cpu_texture.width as u32 - 1) as i32;
+            let y = ty.min(cpu_texture.height as u32 - 1) as i32;
+            let idx = (y * cpu_texture.width + x) as usize;
+            let rgb = cpu_texture.pixels.get(idx).copied().unwrap_or(Vector3::one());
+            let alpha = cpu_texture.alphas.get(idx).copied().unwrap_or(1.0);
+            (rgb, alpha)
+        } else {
+            (Vector3::one(), 1.0)
         }
     }
 
