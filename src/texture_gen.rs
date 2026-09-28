@@ -25,6 +25,7 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/water.png", gen_water_texture);
     generate_if_missing("assets/straw.png", gen_straw_texture);
     generate_if_missing("assets/tuft.png", gen_tuft_texture);
+    generate_if_missing("assets/planks.png", gen_planks_texture);
 
     generate_if_missing("assets/party/hero.png", gen_hero_sprite);
     generate_if_missing("assets/party/mage.png", gen_mage_sprite);
@@ -268,24 +269,59 @@ fn gen_straw_texture() -> Image {
 }
 
 fn gen_tuft_texture() -> Image {
-    let mut img = Image::gen_image_color(32, 32, Color::new(185, 140, 50, 255));
+    let mut img = Image::gen_image_color(32, 32, Color::new(135, 155, 75, 255));
     for y in 0..32 {
         for x in 0..32 {
             let h = hash2d(x, y, 404);
-            // Hebras verticales de pasto seco/amarillo con puntas doradas claras
+            // Hebras verticales de pasto verde-amarillo desaturado (sin tonos naranjas)
             let vertical_blade = (x % 3 == 0) || (x % 5 == 1);
             let c = if vertical_blade && (y < 24 || h > 0.55) {
                 if y < 10 || h > 0.8 {
-                    Color::new(245, 215, 85, 255) // Punta dorada iluminada
+                    Color::new(175, 195, 95, 255) // Punta verde-amarilla clara
                 } else {
-                    Color::new(220, 175, 65, 255) // Tallo dorado brillante
+                    Color::new(150, 170, 80, 255) // Tallo verde oliva / sage
                 }
             } else if h < 0.15 || (y > 24 && h < 0.4) {
-                Color::new(130, 85, 30, 255)   // Sombra ocre/marrón en la raíz
+                Color::new(85, 105, 45, 255)   // Sombra verde musgo oscuro en la raíz
             } else if h > 0.75 {
-                Color::new(205, 160, 60, 255)  // Resplandor cálido
+                Color::new(160, 180, 88, 255)  // Resplandor verde-amarillento
             } else {
-                Color::new(175, 130, 48, 255)  // Base pasto seco amarillo
+                Color::new(130, 150, 70, 255)  // Base verde-amarillo desaturado
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_planks_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(140, 95, 52, 255));
+    for y in 0..32 {
+        let plank_idx = y / 8; // 4 tablones horizontales
+        let is_groove = y % 8 == 0;
+
+        for x in 0..32 {
+            let h = hash2d(x, y, 505);
+            // Juntas verticales intercaladas entre tablones
+            let joint_x = match plank_idx {
+                0 => 16,
+                1 => 24,
+                2 => 8,
+                _ => 20,
+            };
+            let is_vertical_joint = x == joint_x;
+            let is_nail = (x == joint_x - 2 || x == joint_x + 2) && (y % 8 == 4);
+
+            let c = if is_groove || is_vertical_joint {
+                Color::new(65, 38, 18, 255)   // Hendidura oscura entre tablones
+            } else if is_nail {
+                Color::new(45, 40, 38, 255)   // Clavo de hierro forjado
+            } else if h > 0.85 {
+                Color::new(165, 118, 70, 255) // Veta de madera clara
+            } else if h < 0.20 {
+                Color::new(115, 75, 40, 255)  // Sombra de veta
+            } else {
+                Color::new(138, 92, 50, 255)  // Madera de tablón cálida
             };
             img.draw_pixel(x, y, c);
         }

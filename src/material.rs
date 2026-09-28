@@ -96,7 +96,8 @@ pub struct SceneMaterials {
     pub fire_top: Material,  // punta de fuego amarilla
     pub ember: Material,     // brasas incandescentes
     pub smoke: Material,     // humo translúcido
-    pub tuft: Material,      // mechón de pasto amarillo
+    pub tuft: Material,      // mechón de pasto verde-amarillo
+    pub planks: Material,    // puente de tablones de madera
     pub gem: Material,       // cristal -> refracción + reflexión
     pub water: Material,     // charco -> reflexión (+ refracción opcional)
     pub straw: Material,     // círculo de paja alrededor de la fogata
@@ -144,11 +145,14 @@ impl SceneMaterials {
             ember: Material::new(Vector3::new(1.0, 0.75, 0.20), 10.0)
                 .with_emission(Vector3::new(1.4, 0.75, 0.15)),
 
-            smoke: Material::new(Vector3::new(0.55, 0.58, 0.65), 1.0)
-                .with_refraction(0.75, 1.0),
+            smoke: Material::new(Vector3::new(0.60, 0.62, 0.68), 1.0)
+                .with_refraction(0.60, 1.0),
 
-            tuft: Material::new(Vector3::new(0.85, 0.70, 0.30), 2.0)
+            tuft: Material::new(Vector3::new(0.50, 0.60, 0.30), 2.0)
                 .with_texture("assets/tuft.png"),
+
+            planks: Material::new(Vector3::new(0.55, 0.38, 0.22), 4.0)
+                .with_texture("assets/planks.png"),
 
             gem: Material::new(Vector3::new(0.6, 0.9, 1.0), 60.0)
                 .with_texture("assets/gem.png")
