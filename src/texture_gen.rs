@@ -23,6 +23,7 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/fire.png", gen_fire_texture);
     generate_if_missing("assets/gem.png", gen_gem_texture);
     generate_if_missing("assets/water.png", gen_water_texture);
+    generate_if_missing("assets/straw.png", gen_straw_texture);
 
     generate_if_missing("assets/party/hero.png", gen_hero_sprite);
     generate_if_missing("assets/party/mage.png", gen_mage_sprite);
@@ -225,18 +226,39 @@ fn generate_if_missing<F: FnOnce() -> Image>(path: &str, generator: F) {
 // --- Texturas de Materiales (32x32 px) ---
 
 fn gen_grass_texture() -> Image {
-    let mut img = Image::gen_image_color(32, 32, Color::new(65, 135, 40, 255));
+    let mut img = Image::gen_image_color(32, 32, Color::new(35, 105, 80, 255));
     for y in 0..32 {
         for x in 0..32 {
             let h = hash2d(x, y, 101);
             let c = if (x % 4 == 1 && y % 5 < 3) || h > 0.82 {
-                Color::new(88, 175, 55, 255) // Brizna clara
+                Color::new(50, 140, 105, 255) // Brizna teal clara
             } else if h < 0.22 {
-                Color::new(48, 102, 28, 255) // Sombra de brizna
+                Color::new(22, 75, 58, 255)  // Sombra teal oscura
             } else if h < 0.05 {
-                Color::new(60, 46, 25, 255)  // Mota de tierra
+                Color::new(30, 50, 45, 255)  // Mota profunda
             } else {
-                Color::new(65, 135, 40, 255) // Base verde
+                Color::new(35, 105, 80, 255) // Base azul-verdosa
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_straw_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(175, 135, 55, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let h = hash2d(x, y, 303);
+            let fiber = (x * 3 + y * 2 + (h * 4.0) as i32) % 6;
+            let c = if fiber == 0 || h > 0.85 {
+                Color::new(215, 175, 80, 255) // Paja dorada brillante
+            } else if fiber == 1 || h > 0.70 {
+                Color::new(195, 150, 65, 255) // Tono medio
+            } else if fiber == 5 || h < 0.20 {
+                Color::new(135, 95, 35, 255)  // Sombra entre fibras
+            } else {
+                Color::new(165, 125, 50, 255) // Base paja
             };
             img.draw_pixel(x, y, c);
         }

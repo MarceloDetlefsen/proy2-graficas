@@ -92,12 +92,13 @@ pub struct SceneMaterials {
     pub campfire: Material,  // fogata -> emisivo
     pub gem: Material,       // cristal -> refracción + reflexión
     pub water: Material,     // charco -> reflexión (+ refracción opcional)
+    pub straw: Material,     // círculo de paja alrededor de la fogata
 }
 
 impl SceneMaterials {
     pub fn load() -> Self {
         SceneMaterials {
-            grass: Material::new(Vector3::new(0.30, 0.55, 0.20), 4.0)
+            grass: Material::new(Vector3::new(0.20, 0.50, 0.35), 4.0)
                 .with_texture("assets/grass.png"),
 
             dirt: Material::new(Vector3::new(0.40, 0.27, 0.15), 3.0)
@@ -127,6 +128,9 @@ impl SceneMaterials {
                 .with_texture("assets/water.png")
                 .with_reflectivity(0.5)
                 .with_refraction(0.3, 1.33),
+
+            straw: Material::new(Vector3::new(0.65, 0.50, 0.25), 3.0)
+                .with_texture("assets/straw.png"),
         }
     }
 }
