@@ -19,7 +19,7 @@ pub struct TerrainPalette {
 pub fn generate_terrain(
     width: i32,
     depth: i32,
-    max_height: i32,
+    _max_height: i32,
     scale: f64,
     seed: u32,
     palette: &TerrainPalette,
@@ -27,7 +27,7 @@ pub fn generate_terrain(
     let noise_fn: Fbm<OpenSimplex> = Fbm::new(seed);
     let total_cols = (width * depth) as usize;
 
-    let mut height_map = vec![2i32; total_cols];
+    let mut height_map = vec![3i32; total_cols];
     let mut material_map = vec![palette.grass; total_cols];
     let mut is_water_map = vec![false; total_cols];
 
@@ -41,62 +41,61 @@ pub fn generate_terrain(
             let cz = wz + 0.5;
             let dist_center = (cx * cx + cz * cz).sqrt();
 
-            // 1. Arroyo: franja de 1-2 bloques de ancho que cruza el mapa por un lado del claro
-            // Ubicado en z = 12 y 13 (wz en [4.0, 6.0]), hundido 1 bloque respecto al terreno
-            let in_stream = z == 12 || z == 13;
+            // 1. Arroyo: franja que cruza en z in [4.0, 6.0] (wz = 4 o 5 en coordenadas centradas)
+            // Hundido 1 bloque respecto al claro (y=2, cara superior en Y=3.0 vs claro en Y=4.0)
+            let in_stream = wz >= 4.0 && wz < 6.0;
 
-            // 2. Camino de tierra: franja de dirt de ~2 bloques de ancho desde el borde sur (z=15)
-            // hasta el claro de la fogata (z <= 10), ligeramente curva.
-            let in_path = if z >= 14 {
-                x == 8 || x == 9
-            } else if z == 11 {
-                x == 7 || x == 8
-            } else if z == 10 || z == 9 {
-                x == 7 || x == 8
-            } else {
-                false
-            };
+            // 2. Camino de tierra: franja de dirt de ~2 bloques de ancho desde el sur
+            // cruzando el puente hacia el claro
+            let in_path = cz > 3.5 && (cx >= -0.6 && cx <= 1.6);
 
-            let is_stream_rock = (x == 4 && z == 11) || (x == 11 && z == 14);
+            // 3. Claro plano a y = 4.0 (y_top = 3) en x in [-5.0, 5.0], z in [-5.0, 3.5]
+            let in_clearing = cx >= -5.0 && cx <= 5.0 && cz >= -5.0 && cz <= 3.5;
+
+            let is_stream_rock = (cx >= -3.5 && cx <= -2.5 && cz >= 3.5 && cz <= 4.0)
+                || (cx >= 3.0 && cx <= 4.0 && cz >= 3.5 && cz <= 4.0);
 
             if in_stream {
-                // El arroyo está hundido 1 bloque respecto al terreno/claro (y=1 vs y=2)
-                height_map[idx] = 1;
-                // Fondo de dirt con toques de stone
+                // Fondo del arroyo hundido 1 bloque (y=2, cara superior en Y=3.0)
+                height_map[idx] = 2;
                 let bed_mat = if (x + z) % 3 == 0 { palette.stone } else { palette.dirt };
                 material_map[idx] = bed_mat;
                 is_water_map[idx] = true;
             } else if in_path {
-                // Camino de tierra: a nivel del claro (y=2), sin textura de pasto
-                height_map[idx] = 2;
+                height_map[idx] = 3;
                 material_map[idx] = palette.dirt;
-            } else if dist_center <= 2.5 {
-                // Círculo de paja en radio ~2.5 alrededor de la fogata (estilo Chrono Trigger)
-                height_map[idx] = 2;
-                material_map[idx] = palette.straw;
-            } else if dist_center <= 3.5 {
-                // Claro aplanado alrededor de la fogata (y=2, superficie en Y=3.0)
-                height_map[idx] = 2;
-                material_map[idx] = palette.grass;
+            } else if in_clearing {
+                height_map[idx] = 3;
+                if dist_center <= 2.5 {
+                    // Círculo de paja alrededor de la fogata
+                    material_map[idx] = palette.straw;
+                } else {
+                    material_map[idx] = palette.grass;
+                }
             } else if is_stream_rock {
-                // Pocas rocas pequeñas sueltas cerca del arroyo
-                height_map[idx] = 2;
+                height_map[idx] = 3;
                 material_map[idx] = palette.stone;
+            } else if cz > 3.5 {
+                // Lado frontal fuera del claro: plano a y=4.0 (y_top=3, máximo +0 bloques)
+                // para que ningún bloque tape la vista desde el encuadre inicial ni elevaciones bajas
+                height_map[idx] = 3;
+                material_map[idx] = palette.grass;
             } else {
-                // Relieve con colinas suaves de 2-3 bloques de desnivel
+                // Relieve suave fuera del claro de máximo +1 bloque (y_top = 3 o 4, cara sup Y=4.0 a 5.0)
+                let dx = (cx.abs() - 5.0).max(0.0);
+                let dz = if cz < -5.0 { -5.0 - cz } else { 0.0 };
+                let dist_from_clearing = (dx * dx + dz * dz).sqrt();
+                let blend = (dist_from_clearing / 2.0).clamp(0.0, 1.0);
+
                 let nx = cx as f64 * scale;
                 let nz = cz as f64 * scale;
-                let n = noise_fn.get([nx, nz]); // [-1.0, 1.0]
+                let n = (noise_fn.get([nx, nz]) * 0.5 + 0.5) as f32; // [0, 1]
 
-                // Transición suave desde el claro hacia las colinas exteriores
-                let blend = ((dist_center - 3.5) / 2.5).clamp(0.0, 1.0);
-                // Altura base 2 + colinas de 2-3 bloques adicionales
-                let hill = (n * 0.5 + 0.5) * 2.8;
-                let y = (2.0 + blend as f64 * hill).round() as i32;
-                let y_clamped = y.clamp(2, max_height.max(5));
+                // Relieve suave de máximo +1 bloque
+                let hill = (blend * n).round() as i32;
+                let y = (3 + hill).clamp(3, 4);
 
-                height_map[idx] = y_clamped;
-                // Las capas superiores de la periferia/colinas son SIEMPRE pasto (no piedra ni ladrillo)
+                height_map[idx] = y;
                 material_map[idx] = palette.grass;
             }
         }
@@ -117,14 +116,11 @@ pub fn generate_terrain(
             let y_bottom = if is_border {
                 0
             } else {
-                // Altura mínima entre los 4 vecinos ortogonales
                 let n_left  = height_map[(z * width + (x - 1)) as usize];
                 let n_right = height_map[(z * width + (x + 1)) as usize];
                 let n_up    = height_map[((z - 1) * width + x) as usize];
                 let n_down  = height_map[((z + 1) * width + x) as usize];
                 let min_neighbor = n_left.min(n_right).min(n_up).min(n_down);
-
-                // Mínimo 1 cubo debajo: (y_top - 1).min(min_neighbor), no menor a 0
                 (y_top - 1).min(min_neighbor).max(0)
             };
 
@@ -136,14 +132,12 @@ pub fn generate_terrain(
                 let material = if y == y_top {
                     material_map[idx]
                 } else if y == y_top - 1 {
-                    // Capa inmediata subsuperficial: dirt (o stone si la superficie es roca)
                     if material_map[idx].albedo == palette.stone.albedo {
                         palette.stone
                     } else {
                         palette.dirt
                     }
                 } else {
-                    // Estratos inferiores y acantilados profundos: stone
                     palette.stone
                 };
 
@@ -156,10 +150,9 @@ pub fn generate_terrain(
 
             // Capa de agua plana a ras (cubo achatado ~0.1) si es arroyo
             if is_water_map[idx] {
-                // El fondo del arroyo está en y=1 (su cara superior en Y=2.0).
-                // El agua plana se coloca sobre el fondo (Y=2.0 a 2.1).
+                // Fondo en y=2 (cara superior Y=3.0), agua colocada en Y=3.0 a 3.1
                 cubes.push(Cube::new_box(
-                    Vector3::new(wx, 2.0, wz),
+                    Vector3::new(wx, 3.0, wz),
                     Vector3::new(1.0, 0.1, 1.0),
                     palette.water,
                 ));
