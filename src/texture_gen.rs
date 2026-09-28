@@ -25,6 +25,7 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/water.png", gen_water_texture);
     generate_if_missing("assets/straw.png", gen_straw_texture);
     generate_if_missing("assets/tuft.png", gen_tuft_texture);
+    generate_if_missing("assets/grass_tuft.png", gen_grass_tuft_texture);
     generate_if_missing("assets/planks.png", gen_planks_texture);
 
     generate_if_missing("assets/party/hero.png", gen_hero_sprite);
@@ -289,6 +290,53 @@ fn gen_tuft_texture() -> Image {
                 Color::new(130, 150, 70, 255)  // Base verde-amarillo desaturado
             };
             img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+/// Genera la textura del mechón de pasto tipo billboard (32x32 px con fondo transparente).
+/// 5-7 hojas con curvatura natural, puntas afiladas, base verde oliva oscuro y punta
+/// verde-amarilla desaturada.
+fn gen_grass_tuft_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
+
+    // Hojas de pasto: (x_base, x_tip, y_tip, width_base)
+    let blades = [
+        (9.0f32, 4.0f32, 13.0f32, 2.6f32),
+        (12.0f32, 8.0f32, 5.0f32, 3.0f32),
+        (15.0f32, 15.0f32, 3.0f32, 3.2f32),
+        (18.0f32, 22.0f32, 6.0f32, 3.0f32),
+        (22.0f32, 27.0f32, 11.0f32, 2.6f32),
+        (14.0f32, 12.0f32, 16.0f32, 2.2f32),
+    ];
+
+    for &(bx, tx, ty, w_base) in &blades {
+        let total_h = 31.0 - ty;
+        for y_i in (ty as i32)..=31 {
+            let t = (31.0 - y_i as f32) / total_h; // 0 en la base (y=31), 1 en la punta (y=ty)
+            let cx = bx + (tx - bx) * (t * 0.75 + t * t * 0.25);
+            let half_w = (w_base * (1.0 - t * 0.85) * 0.5).max(0.40);
+
+            let min_x = (cx - half_w).round() as i32;
+            let max_x = (cx + half_w).round() as i32;
+
+            // Base verde oliva oscuro: (42, 65, 22), Punta verde-amarillo desaturado: (170, 185, 75)
+            let r = (42.0 + t * 128.0) as u8;
+            let g = (65.0 + t * 120.0) as u8;
+            let b = (22.0 + t * 53.0) as u8;
+
+            for x_i in min_x..=max_x {
+                if x_i >= 0 && x_i < 32 && y_i >= 0 && y_i < 32 {
+                    let is_edge = (x_i == min_x || x_i == max_x) && t < 0.8;
+                    let color = if is_edge {
+                        Color::new((r as f32 * 0.78) as u8, (g as f32 * 0.78) as u8, (b as f32 * 0.78) as u8, 255)
+                    } else {
+                        Color::new(r, g, b, 255)
+                    };
+                    img.draw_pixel(x_i, y_i, color);
+                }
+            }
         }
     }
     img

@@ -96,6 +96,8 @@ pub struct SceneMaterials {
     pub fire_top: Material,  // punta de fuego amarilla
     pub ember: Material,     // brasas incandescentes
     pub smoke: Material,     // humo translúcido
+    pub smoke_base: Material,// humo base cálido cerca del fuego
+    pub smoke_top: Material, // humo alto frío contra las estrellas
     pub tuft: Material,      // mechón de pasto verde-amarillo
     pub planks: Material,    // puente de tablones de madera
     pub gem: Material,       // cristal -> refracción + reflexión
@@ -145,8 +147,17 @@ impl SceneMaterials {
             ember: Material::new(Vector3::new(1.0, 0.75, 0.20), 10.0)
                 .with_emission(Vector3::new(1.4, 0.75, 0.15)),
 
-            smoke: Material::new(Vector3::new(0.60, 0.62, 0.68), 1.0)
-                .with_refraction(0.60, 1.0),
+            smoke: Material::new(Vector3::new(0.60, 0.58, 0.56), 1.0)
+                .with_refraction(0.58, 1.0)
+                .with_emission(Vector3::new(0.12, 0.10, 0.08)),
+
+            smoke_base: Material::new(Vector3::new(0.66, 0.56, 0.45), 1.0)
+                .with_refraction(0.55, 1.0)
+                .with_emission(Vector3::new(0.16, 0.12, 0.06)),
+
+            smoke_top: Material::new(Vector3::new(0.56, 0.58, 0.64), 1.0)
+                .with_refraction(0.60, 1.0)
+                .with_emission(Vector3::new(0.10, 0.10, 0.12)),
 
             tuft: Material::new(Vector3::new(0.50, 0.60, 0.30), 2.0)
                 .with_texture("assets/tuft.png"),
