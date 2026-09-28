@@ -50,15 +50,13 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     let mut hit_uv = (0.0, 0.0);
     let mut hit_billboard: Option<(&crate::billboard::Billboard, Vector3, f32, f32)> = None;
 
-    // 1. Intersección con cubos
-    for cube in &scene.cubes {
-        if let Some((t, u, v)) = cube.intersect(origin, dir) {
-            if t < closest_t && t > 1e-4 {
-                closest_t = t;
-                hit_cube = Some(cube);
-                hit_uv = (u, v);
-                hit_billboard = None;
-            }
+    // 1. Intersección con cubos acelerada mediante Grid 3D uniforme y DDA
+    if let Some((t, cube_idx, u, v)) = scene.grid.intersect_closest(&scene.cubes, origin, dir) {
+        if t < closest_t && t > 1e-4 {
+            closest_t = t;
+            hit_cube = Some(&scene.cubes[cube_idx]);
+            hit_uv = (u, v);
+            hit_billboard = None;
         }
     }
 
@@ -93,19 +91,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             let light_dir = light_vec / light_dist;
 
             let shadow_orig = hit_point - scene.camera_forward * 1e-3;
-            let mut in_shadow = false;
-
-            for occluder in &scene.cubes {
-                if occluder.material.transparency > 0.7 {
-                    continue;
-                }
-                if let Some((t, _, _)) = occluder.intersect(shadow_orig, light_dir) {
-                    if t > 1e-3 && t < (light_dist - 1e-3) {
-                        in_shadow = true;
-                        break;
-                    }
-                }
-            }
+            let in_shadow = scene.grid.is_occluded(&scene.cubes, shadow_orig, light_dir, light_dist);
 
             if !in_shadow {
                 // Atenuación suave por distancia a la fogata
@@ -213,20 +199,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                 }
 
                 let shadow_orig = hit_point + normal * 1e-3;
-                let mut in_shadow = false;
-
-                // Oclusión por cubos
-                for occluder in &scene.cubes {
-                    if occluder.material.transparency > 0.7 {
-                        continue;
-                    }
-                    if let Some((t, _, _)) = occluder.intersect(shadow_orig, light_dir) {
-                        if t > 1e-3 && t < (light_dist - 1e-3) {
-                            in_shadow = true;
-                            break;
-                        }
-                    }
-                }
+                let in_shadow = scene.grid.is_occluded(&scene.cubes, shadow_orig, light_dir, light_dist);
 
                 if !in_shadow {
                     let attenuation = (light.intensity / (1.0 + 0.22 * light_dist)).max(0.0);
