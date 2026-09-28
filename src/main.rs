@@ -9,6 +9,7 @@ mod scene;
 mod raytrace;
 mod texture;
 mod texture_gen;
+mod grid;
 
 use raylib::prelude::*;
 use rayon::prelude::*;
@@ -23,6 +24,7 @@ fn main() {
         .size(WIDTH, HEIGHT)
         .title("Diorama - Campamento Nocturno")
         .build();
+    rl.set_target_fps(60);
 
     // 1. Asegurar que todos los assets requeridos existan en disco
     texture_gen::generate_all_assets();
@@ -30,6 +32,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let headless = args.iter().any(|a| a == "--screenshot");
     let rotated = args.iter().any(|a| a == "--rotated");
+    let moving_mode = args.iter().any(|a| a == "--moving");
 
     // 2. Crear la escena y cargar texturas en CPU
     let mut scene = Scene::campfire_diorama();
@@ -52,41 +55,102 @@ fn main() {
     let mut framebuffer = vec![Color::BLACK; (WIDTH * HEIGHT) as usize];
     let mut screenshot_saved = false;
 
+    // Textura GPU para presentación rápida en 1 solo draw call (sin draw_pixel pixel por pixel)
+    let initial_img = Image::gen_image_color(WIDTH, HEIGHT, Color::BLACK);
+    let mut render_texture = rl
+        .load_texture_from_image(&thread, &initial_img)
+        .expect("Error al crear Texture2D de presentación");
+
+    let mut last_camera_move = std::time::Instant::now() - std::time::Duration::from_secs(1);
+    let mut is_moving = moving_mode;
+    let mut needs_fullres = !moving_mode;
+    let mut rendered_fullres = false;
+
     while !rl.window_should_close() {
         // --- Toggle de depuración de mapas normales: tecla N ---
         if rl.is_key_pressed(KeyboardKey::KEY_N) {
             scene.use_normal_maps = !scene.use_normal_maps;
             println!("Mapas normales: {}", if scene.use_normal_maps { "ACTIVADOS" } else { "DESACTIVADOS" });
-            camera.orbit(0.0, 0.0); // Marca camera como cambiada para forzar re-render
+            camera.orbit(0.0, 0.0);
+            needs_fullres = true;
+            rendered_fullres = false;
         }
 
         // --- Input de cámara: rotación con mouse/flechas, zoom con scroll ---
         let dt = rl.get_frame_time();
+        let mut moved = false;
         if rl.is_key_down(KeyboardKey::KEY_LEFT) {
             camera.orbit(-1.5 * dt, 0.0);
+            moved = true;
         }
         if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
             camera.orbit(1.5 * dt, 0.0);
+            moved = true;
         }
         if rl.is_key_down(KeyboardKey::KEY_UP) {
             camera.orbit(0.0, 1.0 * dt);
+            moved = true;
         }
         if rl.is_key_down(KeyboardKey::KEY_DOWN) {
             camera.orbit(0.0, -1.0 * dt);
+            moved = true;
         }
         let wheel = rl.get_mouse_wheel_move();
         if wheel != 0.0 {
             camera.zoom(wheel * 0.5);
+            moved = true;
         }
 
-        // --- Render (paralelizado por filas con rayon) ---
-        if camera.is_changed() {
+        if moved {
+            last_camera_move = std::time::Instant::now();
+            is_moving = true;
+            needs_fullres = true;
+            rendered_fullres = false;
+        }
+
+        // --- Render progresivo ---
+        // Mientras la cámara se mueve: render a 1/2 de resolución (escala con vecino más cercano).
+        // Al pasar >= 150 ms sin movimiento: render a resolución completa (800x600).
+        let should_render_moving = (is_moving && last_camera_move.elapsed() < std::time::Duration::from_millis(150)) || (moving_mode && !screenshot_saved);
+        let should_render_settled = needs_fullres && last_camera_move.elapsed() >= std::time::Duration::from_millis(150);
+
+        if should_render_moving && (camera.is_changed() || !screenshot_saved) {
             scene.camera_forward = camera.forward;
             scene.camera_right = camera.right;
             scene.camera_up = camera.up;
-            render(&scene, &camera, &mut framebuffer);
+            let start = std::time::Instant::now();
+            render(&scene, &camera, &mut framebuffer, 2);
+            let elapsed = start.elapsed();
+            println!("Render (movimiento 1/2 res): {:.2} ms (cubos: {})", elapsed.as_secs_f64() * 1000.0, scene.cubes.len());
+            let _ = render_texture.update_texture(framebuffer_as_bytes(&framebuffer));
 
-            if !screenshot_saved {
+            if moving_mode && !screenshot_saved {
+                let mut img = Image::gen_image_color(WIDTH, HEIGHT, Color::BLACK);
+                for y in 0..HEIGHT {
+                    for x in 0..WIDTH {
+                        img.draw_pixel(x, y, framebuffer[(y * WIDTH + x) as usize]);
+                    }
+                }
+                img.export_image("screenshot_moving.png");
+                screenshot_saved = true;
+                if headless {
+                    break;
+                }
+            }
+        } else if should_render_settled || (camera.is_changed() && !is_moving) || !rendered_fullres {
+            scene.camera_forward = camera.forward;
+            scene.camera_right = camera.right;
+            scene.camera_up = camera.up;
+            let start = std::time::Instant::now();
+            render(&scene, &camera, &mut framebuffer, 1);
+            let elapsed = start.elapsed();
+            println!("Render (reposo full res): {:.2} ms (cubos: {})", elapsed.as_secs_f64() * 1000.0, scene.cubes.len());
+            let _ = render_texture.update_texture(framebuffer_as_bytes(&framebuffer));
+            needs_fullres = false;
+            is_moving = false;
+            rendered_fullres = true;
+
+            if !screenshot_saved && headless {
                 let mut img = Image::gen_image_color(WIDTH, HEIGHT, Color::BLACK);
                 for y in 0..HEIGHT {
                     for x in 0..WIDTH {
@@ -96,46 +160,91 @@ fn main() {
                 let out_file = if rotated { "screenshot_rotated.png" } else { "screenshot.png" };
                 img.export_image(out_file);
                 screenshot_saved = true;
-                if headless {
-                    break;
-                }
+                break;
             }
         }
 
+        // Presentación en GPU mediante Texture2D (un solo draw call)
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
-        for y in 0..HEIGHT {
-            for x in 0..WIDTH {
-                d.draw_pixel(x, y, framebuffer[(y * WIDTH + x) as usize]);
-            }
-        }
+        d.draw_texture(&render_texture, 0, 0, Color::WHITE);
         d.draw_fps(10, 10);
     }
 }
 
-/// Lanza un rayo por cada pixel. Paralelizado por filas: cada fila del
-/// framebuffer se calcula en un hilo distinto vía rayon, sin necesidad
-/// de tocar la GPU.
-fn render(scene: &Scene, camera: &Camera, framebuffer: &mut [Color]) {
+/// Lanza rayos paralelizados con rayon usando chunks de 4 filas para balancear carga.
+/// Soporta resolución progresiva según el factor `scale` (1 = full res, 2 = 1/2 res con vecino más cercano).
+fn render(scene: &Scene, camera: &Camera, framebuffer: &mut [Color], scale: i32) {
     let aspect = WIDTH as f32 / HEIGHT as f32;
     let fov = 60.0_f32.to_radians();
+    let tan_half_fov = (fov / 2.0).tan();
 
-    framebuffer
-        .par_chunks_mut(WIDTH as usize)
-        .enumerate()
-        .for_each(|(y, row)| {
-            for x in 0..WIDTH as usize {
-                let px = (2.0 * (x as f32 + 0.5) / WIDTH as f32 - 1.0) * aspect * (fov / 2.0).tan();
-                let py = (1.0 - 2.0 * (y as f32 + 0.5) / HEIGHT as f32) * (fov / 2.0).tan();
+    if scale <= 1 {
+        let chunk_rows = 4;
+        let chunk_pixels = (WIDTH * chunk_rows) as usize;
 
-                let dir = camera
-                    .basis_change(&Vector3::new(px, py, -1.0))
-                    .normalized();
+        framebuffer
+            .par_chunks_mut(chunk_pixels)
+            .enumerate()
+            .for_each(|(chunk_idx, chunk)| {
+                let start_y = (chunk_idx as i32) * chunk_rows;
+                let actual_rows = (chunk.len() / WIDTH as usize) as i32;
 
-                let color = raytrace::trace_ray(scene, camera.eye, dir, 0);
-                row[x] = to_raylib_color(color);
+                for local_y in 0..actual_rows {
+                    let y = start_y + local_y;
+                    let py = (1.0 - 2.0 * (y as f32 + 0.5) / HEIGHT as f32) * tan_half_fov;
+
+                    for x in 0..WIDTH {
+                        let px = (2.0 * (x as f32 + 0.5) / WIDTH as f32 - 1.0) * aspect * tan_half_fov;
+                        let dir = camera
+                            .basis_change(&Vector3::new(px, py, -1.0))
+                            .normalized();
+
+                        let color = raytrace::trace_ray(scene, camera.eye, dir, 0);
+                        chunk[(local_y * WIDTH + x) as usize] = to_raylib_color(color);
+                    }
+                }
+            });
+    } else {
+        let low_w = WIDTH / scale;
+        let low_h = HEIGHT / scale;
+        let chunk_rows = 4;
+        let chunk_pixels = (low_w * chunk_rows) as usize;
+
+        let mut low_fb = vec![Color::BLACK; (low_w * low_h) as usize];
+
+        low_fb
+            .par_chunks_mut(chunk_pixels)
+            .enumerate()
+            .for_each(|(chunk_idx, chunk)| {
+                let start_y = (chunk_idx as i32) * chunk_rows;
+                let actual_rows = (chunk.len() / low_w as usize) as i32;
+
+                for local_y in 0..actual_rows {
+                    let y = start_y + local_y;
+                    let py = (1.0 - 2.0 * (y as f32 + 0.5) / low_h as f32) * tan_half_fov;
+
+                    for x in 0..low_w {
+                        let px = (2.0 * (x as f32 + 0.5) / low_w as f32 - 1.0) * aspect * tan_half_fov;
+                        let dir = camera
+                            .basis_change(&Vector3::new(px, py, -1.0))
+                            .normalized();
+
+                        let color = raytrace::trace_ray(scene, camera.eye, dir, 0);
+                        chunk[(local_y * low_w + x) as usize] = to_raylib_color(color);
+                    }
+                }
+            });
+
+        // Escalado con vecino más cercano al framebuffer original
+        for y in 0..HEIGHT {
+            let ly = (y / scale).min(low_h - 1);
+            for x in 0..WIDTH {
+                let lx = (x / scale).min(low_w - 1);
+                framebuffer[(y * WIDTH + x) as usize] = low_fb[(ly * low_w + lx) as usize];
             }
-        });
+        }
+    }
 }
 
 fn to_raylib_color(c: Vector3) -> Color {
@@ -145,4 +254,10 @@ fn to_raylib_color(c: Vector3) -> Color {
         (c.z.clamp(0.0, 1.0) * 255.0) as u8,
         255,
     )
+}
+
+fn framebuffer_as_bytes(fb: &[Color]) -> &[u8] {
+    unsafe {
+        std::slice::from_raw_parts(fb.as_ptr() as *const u8, fb.len() * std::mem::size_of::<Color>())
+    }
 }
