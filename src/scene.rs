@@ -12,6 +12,7 @@ pub struct Scene {
     pub lights: Vec<Light>,
     pub skybox: Skybox,
     pub textures: crate::texture::TextureManager,
+    pub grid: crate::grid::VoxelGrid,
     pub use_normal_maps: bool,
     pub camera_forward: Vector3,
     pub camera_right: Vector3,
@@ -98,17 +99,17 @@ impl Scene {
         // --- Personajes (7 miembros de Chrono Trigger en círculo alrededor de la fogata) ---
         let party_defs: [(&str, f32); 7] = [
             ("assets/party/Lucca.png", 0.90),
-            ("assets/party/Frog.png", 0.75),
             ("assets/party/Chrono.png", 1.00),
-            ("assets/party/Robo.png", 1.10),
             ("assets/party/Magus.png", 1.05),
             ("assets/party/Ayla.png", 1.00),
+            ("assets/party/Robo.png", 1.10),
+            ("assets/party/Frog.png", 0.75),
             ("assets/party/Marle.png", 0.95),
         ];
 
         let base_height = 1.8f32;
-        let radius = 2.7f32;
-        let base_angle = 20.0f32.to_radians();
+        let radius = 3.0f32;
+        let base_angle = 17.1f32.to_radians();
         let angle_step = std::f32::consts::TAU / 7.0;
 
         let mut billboards = Vec::new();
@@ -125,12 +126,15 @@ impl Scene {
             billboards.push(Billboard::new(Vector3::new(x, y, z), width, height, tex));
         }
 
+        let grid = crate::grid::VoxelGrid::build(&cubes);
+
         Scene {
             cubes,
             billboards,
             lights,
             skybox: Skybox::night(),
             textures: crate::texture::TextureManager::new(),
+            grid,
             use_normal_maps: true,
             camera_forward: Vector3::new(0.0, 0.0, -1.0),
             camera_right: Vector3::new(1.0, 0.0, 0.0),

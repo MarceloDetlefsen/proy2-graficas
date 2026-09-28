@@ -3,6 +3,7 @@ use raylib::prelude::*;
 pub struct Camera {
     pub eye: Vector3,
     pub center: Vector3,
+    pub world_up: Vector3,
     pub up: Vector3,
     pub forward: Vector3,
     pub right: Vector3,
@@ -14,7 +15,8 @@ impl Camera {
         let mut camera = Camera {
             eye,
             center,
-            up,
+            world_up: up,
+            up: Vector3::zero(),
             forward: Vector3::zero(),
             right: Vector3::zero(),
             changed: true,
@@ -25,8 +27,9 @@ impl Camera {
 
     pub fn update_basis_vectors(&mut self) {
         self.forward = (self.center - self.eye).normalized();
-        self.right = self.forward.cross(self.up).normalized();
-        self.up = self.right.cross(self.forward);
+        // Usar siempre world_up fijo (0, 1, 0) para que el horizonte se mantenga recto y sin inclinación
+        self.right = self.forward.cross(self.world_up).normalized();
+        self.up = self.right.cross(self.forward).normalized();
         self.changed = true;
     }
 
