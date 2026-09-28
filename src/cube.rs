@@ -12,6 +12,7 @@ pub struct Cube {
     pub tile_uv: bool,
     pub casts_shadow: bool,
     pub log_axis: Option<char>, // None: estándar, Some('X'): veta a lo largo de X, Some('Z'): veta a lo largo de Z
+    pub is_tree: bool, // Marca cubos de árboles para cutaway de cámara en auto-orbit
 }
 
 impl Cube {
@@ -23,6 +24,7 @@ impl Cube {
             tile_uv: true,
             casts_shadow: true,
             log_axis: None,
+            is_tree: false,
         }
     }
 
@@ -34,7 +36,13 @@ impl Cube {
             tile_uv: true,
             casts_shadow: true,
             log_axis: None,
+            is_tree: false,
         }
+    }
+
+    pub fn as_tree(mut self) -> Self {
+        self.is_tree = true;
+        self
     }
 
     pub fn with_tile_uv(mut self, tile: bool) -> Self {

@@ -138,7 +138,7 @@ impl VoxelGrid {
 
     /// Recorrido DDA 3D (Amanatides-Woo) buscando el impacto más cercano.
     /// Devuelve (t, cube_index, u, v) si impacta algún cubo.
-    pub fn intersect_closest(&self, cubes: &[Cube], origin: Vector3, dir: Vector3) -> Option<(f32, usize, f32, f32)> {
+    pub fn intersect_closest(&self, cubes: &[Cube], origin: Vector3, dir: Vector3, tree_cutaway: Option<f32>) -> Option<(f32, usize, f32, f32)> {
         let (t_near, _t_far) = self.intersect_grid_aabb(origin, dir)?;
 
         let t_start = t_near.max(0.0);
@@ -185,8 +185,15 @@ impl VoxelGrid {
             let cell_cubes = &self.cells[cell_idx];
 
             for &ci in cell_cubes {
-                if let Some((t, u, v)) = cubes[ci].intersect(origin, dir) {
+                let c = &cubes[ci];
+                if let Some((t, u, v)) = c.intersect(origin, dir) {
                     if t > 1e-4 {
+                        // En auto-orbit / --frames, los árboles que tapan la cámara a distancia < (cam_dist - 1.5) se omiten
+                        if let Some(cut_dist) = tree_cutaway {
+                            if c.is_tree && t < cut_dist {
+                                continue;
+                            }
+                        }
                         if let Some((best_t, _, _, _)) = closest_hit {
                             if t < best_t {
                                 closest_hit = Some((t, ci, u, v));
