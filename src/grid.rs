@@ -286,7 +286,7 @@ impl VoxelGrid {
 
             for &ci in cell_cubes {
                 let cube = &cubes[ci];
-                if cube.material.transparency > 0.7 {
+                if !cube.casts_shadow || cube.material.transparency > 0.7 {
                     continue;
                 }
                 if let Some((t, _, _)) = cube.intersect(origin, dir) {

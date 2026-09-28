@@ -9,6 +9,8 @@ pub struct Cube {
     pub min: Vector3,
     pub max: Vector3,
     pub material: Material,
+    pub tile_uv: bool,
+    pub casts_shadow: bool,
 }
 
 impl Cube {
@@ -17,6 +19,8 @@ impl Cube {
             min: position,
             max: position + Vector3::new(size, size, size),
             material,
+            tile_uv: true,
+            casts_shadow: true,
         }
     }
 
@@ -25,7 +29,19 @@ impl Cube {
             min: position,
             max: position + size,
             material,
+            tile_uv: true,
+            casts_shadow: true,
         }
+    }
+
+    pub fn with_tile_uv(mut self, tile: bool) -> Self {
+        self.tile_uv = tile;
+        self
+    }
+
+    pub fn without_shadow(mut self) -> Self {
+        self.casts_shadow = false;
+        self
     }
 
     pub fn center(&self) -> Vector3 {
@@ -112,16 +128,27 @@ impl Cube {
         if d_min_z < min_d { min_d = d_min_z; face = 4; }
         if d_max_z < min_d { face = 5; }
 
-        let (u, v) = match face {
-            0 => ((hit_point.z - self.min.z) / sz, (self.max.y - hit_point.y) / sy), // -X (izquierda)
-            1 => ((self.max.z - hit_point.z) / sz, (self.max.y - hit_point.y) / sy), // +X (derecha)
-            2 => ((hit_point.x - self.min.x) / sx, (self.max.z - hit_point.z) / sz), // -Y (abajo)
-            3 => ((hit_point.x - self.min.x) / sx, (hit_point.z - self.min.z) / sz), // +Y (arriba)
-            4 => ((self.max.x - hit_point.x) / sx, (self.max.y - hit_point.y) / sy), // -Z (atrás)
-            _ => ((hit_point.x - self.min.x) / sx, (self.max.y - hit_point.y) / sy), // +Z (frente)
+        let (u, v) = if self.tile_uv {
+            match face {
+                0 => (hit_point.z - self.min.z, self.max.y - hit_point.y), // -X (izquierda)
+                1 => (self.max.z - hit_point.z, self.max.y - hit_point.y), // +X (derecha)
+                2 => (hit_point.x - self.min.x, self.max.z - hit_point.z), // -Y (abajo)
+                3 => (hit_point.x - self.min.x, hit_point.z - self.min.z), // +Y (arriba)
+                4 => (self.max.x - hit_point.x, self.max.y - hit_point.y), // -Z (atrás)
+                _ => (hit_point.x - self.min.x, self.max.y - hit_point.y), // +Z (frente)
+            }
+        } else {
+            match face {
+                0 => ((hit_point.z - self.min.z) / sz, (self.max.y - hit_point.y) / sy), // -X (izquierda)
+                1 => ((self.max.z - hit_point.z) / sz, (self.max.y - hit_point.y) / sy), // +X (derecha)
+                2 => ((hit_point.x - self.min.x) / sx, (self.max.z - hit_point.z) / sz), // -Y (abajo)
+                3 => ((hit_point.x - self.min.x) / sx, (hit_point.z - self.min.z) / sz), // +Y (arriba)
+                4 => ((self.max.x - hit_point.x) / sx, (self.max.y - hit_point.y) / sy), // -Z (atrás)
+                _ => ((hit_point.x - self.min.x) / sx, (self.max.y - hit_point.y) / sy), // +Z (frente)
+            }
         };
 
-        (u.clamp(0.0, 1.0), v.clamp(0.0, 1.0))
+        (u.rem_euclid(1.0).clamp(0.0, 0.99999), v.rem_euclid(1.0).clamp(0.0, 0.99999))
     }
 
     /// Devuelve la base ortonormal de la cara golpeada: (normal, tangent, bitangent)
