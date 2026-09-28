@@ -189,6 +189,7 @@ fn main() {
     let (mut rl, thread) = raylib::init()
         .size(WIDTH, HEIGHT)
         .title("Diorama - Campamento Nocturno")
+        .log_level(raylib::consts::TraceLogLevel::LOG_WARNING)
         .build();
     rl.set_target_fps(60);
 
@@ -1186,7 +1187,6 @@ fn run_check_layout(scene: &Scene) {
     let mut portal_max_x = i32::MIN;
     let mut portal_min_y = i32::MAX;
     let mut portal_max_y = i32::MIN;
-    let mut portal_hits = 0;
 
     let portal_bb = scene.billboards.iter().find(|b| b.texture == "assets/gate_vortex.png").expect("Portal billboard no encontrado");
 
@@ -1206,7 +1206,6 @@ fn run_check_layout(scene: &Scene) {
                     };
 
                     if !occluded {
-                        portal_hits += 1;
                         if x < portal_min_x { portal_min_x = x; }
                         if x > portal_max_x { portal_max_x = x; }
                         if y < portal_min_y { portal_min_y = y; }

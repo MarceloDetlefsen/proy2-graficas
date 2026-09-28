@@ -6,6 +6,7 @@ use crate::skybox::Skybox;
 use crate::billboard::Billboard;
 use crate::procedural;
 
+#[allow(dead_code)]
 pub struct Scene {
     pub cubes: Vec<Cube>,
     pub billboards: Vec<Billboard>, // Personajes de la party (7) + Gate vortex (1) + carpa (1)
@@ -134,8 +135,6 @@ impl Scene {
         for (i, &(x, z, variant)) in tree_configs.iter().enumerate() {
             assert!(x >= -8.5 && x <= 8.5 && z >= -8.5 && z <= 8.5, "Árbol {} fuera del límite permitido del terreno!", i + 1);
             let tree_cubes = Self::giant_tree(x, z, variant, &cubes, &mats);
-            let sample_h = terrain_only_height_at(&cubes, x, z);
-            println!("Árbol {} en ({:.1}, {:.1}): verificado con contacto completo con el terreno (h = {:.2})", i + 1, x, z, sample_h);
             cubes.extend(tree_cubes);
         }
 

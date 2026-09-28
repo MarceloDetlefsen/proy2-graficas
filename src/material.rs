@@ -92,6 +92,7 @@ impl Material {
 
 /// Paleta de materiales de la escena: campamento nocturno en el bosque.
 /// Cada uno mapea directo a un punto de la rúbrica.
+#[allow(dead_code)]
 pub struct SceneMaterials {
     pub grass: Material,
     pub dirt: Material,

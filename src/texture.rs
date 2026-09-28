@@ -36,6 +36,7 @@ pub struct TextureManager {
     textures: HashMap<String, Texture2D>, // Copias GPU solo para debug/preview, no para el raytrace
 }
 
+#[allow(dead_code)]
 impl TextureManager {
     pub fn new() -> Self {
         Self::default()

@@ -3,6 +3,7 @@ use raylib::prelude::Vector3;
 use crate::cube::Cube;
 use crate::material::Material;
 
+#[allow(dead_code)]
 pub struct TerrainPalette {
     pub grass: Material,
     pub dirt: Material,
