@@ -12,6 +12,26 @@ pub struct Scene {
     pub lights: Vec<Light>,
     pub skybox: Skybox,
     pub textures: crate::texture::TextureManager,
+    pub use_normal_maps: bool,
+    pub camera_forward: Vector3,
+    pub camera_right: Vector3,
+    pub camera_up: Vector3,
+}
+
+/// Calcula la altura real del suelo en las coordenadas (x, z) buscando el bloque
+/// de terreno superior en esa columna.
+pub fn terrain_height_at(cubes: &[Cube], x: f32, z: f32) -> f32 {
+    let mut max_y = 0.0f32;
+    let mut found = false;
+    for cube in cubes {
+        if cube.min.x <= x && x < cube.max.x && cube.min.z <= z && z < cube.max.z {
+            if !found || cube.max.y > max_y {
+                max_y = cube.max.y;
+                found = true;
+            }
+        }
+    }
+    if found { max_y } else { 3.0 }
 }
 
 impl Scene {
@@ -61,13 +81,19 @@ impl Scene {
         // --- Luces ---
         let lights = vec![Light::campfire(Vector3::new(0.0, ground_y + 0.8, 0.0))];
 
-        // --- Personajes (billboards con sprites pixel-art) ---
-        let billboards = vec![
-            Billboard::new(Vector3::new(-0.8, ground_y + 0.5, -0.8), 1.0, 1.4, "assets/party/hero.png"),
-            Billboard::new(Vector3::new(0.8, ground_y + 0.5, -0.8), 1.0, 1.4, "assets/party/mage.png"),
-            Billboard::new(Vector3::new(-0.8, ground_y + 0.5, 0.8), 1.0, 1.4, "assets/party/warrior.png"),
-            Billboard::new(Vector3::new(0.8, ground_y + 0.5, 0.8), 1.0, 1.4, "assets/party/rogue.png"),
+        // --- Personajes (billboards con sprites pixel-art en semicírculo sobre el terreno real) ---
+        let party_configs = [
+            (-1.8, -0.6, "assets/party/hero.png"),
+            (-0.9, -1.8, "assets/party/mage.png"),
+            (0.9, -1.8, "assets/party/warrior.png"),
+            (1.8, -0.6, "assets/party/rogue.png"),
         ];
+
+        let mut billboards = Vec::new();
+        for (x, z, tex) in party_configs {
+            let y = terrain_height_at(&cubes, x, z);
+            billboards.push(Billboard::new(Vector3::new(x, y, z), 1.0, 1.4, tex));
+        }
 
         Scene {
             cubes,
@@ -75,6 +101,10 @@ impl Scene {
             lights,
             skybox: Skybox::night(),
             textures: crate::texture::TextureManager::new(),
+            use_normal_maps: true,
+            camera_forward: Vector3::new(0.0, 0.0, -1.0),
+            camera_right: Vector3::new(1.0, 0.0, 0.0),
+            camera_up: Vector3::new(0.0, 1.0, 0.0),
         }
     }
 

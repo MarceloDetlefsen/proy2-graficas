@@ -48,15 +48,74 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     let mut closest_t = f32::MAX;
     let mut hit_cube = None;
     let mut hit_uv = (0.0, 0.0);
+    let mut hit_billboard: Option<(&crate::billboard::Billboard, Vector3, f32, f32)> = None;
 
+    // 1. Intersección con cubos
     for cube in &scene.cubes {
         if let Some((t, u, v)) = cube.intersect(origin, dir) {
-            if t < closest_t {
+            if t < closest_t && t > 1e-4 {
                 closest_t = t;
                 hit_cube = Some(cube);
                 hit_uv = (u, v);
+                hit_billboard = None;
             }
         }
+    }
+
+    // 2. Intersección con billboards (sprites planos orientados a cámara)
+    for bb in &scene.billboards {
+        if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up) {
+            if t < closest_t && t > 1e-4 {
+                let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                // Si el texel tiene alpha < 0.5, el rayo pasa de largo
+                if alpha >= 0.5 {
+                    closest_t = t;
+                    hit_billboard = Some((bb, color, u, v));
+                    hit_cube = None;
+                }
+            }
+        }
+    }
+
+    // Sombreado de billboard
+    if let Some((_bb, sprite_color, _u, _v)) = hit_billboard {
+        let hit_point = origin + dir * closest_t;
+        let ambient = sprite_color * 0.15;
+        let mut diffuse = Vector3::zero();
+
+        for light in &scene.lights {
+            let light_vec = light.position - hit_point;
+            let light_dist = light_vec.length();
+            if light_dist < 1e-4 {
+                continue;
+            }
+            let light_dir = light_vec / light_dist;
+
+            let shadow_orig = hit_point - scene.camera_forward * 1e-3;
+            let mut in_shadow = false;
+
+            for occluder in &scene.cubes {
+                if occluder.material.transparency > 0.7 {
+                    continue;
+                }
+                if let Some((t, _, _)) = occluder.intersect(shadow_orig, light_dir) {
+                    if t > 1e-3 && t < (light_dist - 1e-3) {
+                        in_shadow = true;
+                        break;
+                    }
+                }
+            }
+
+            if !in_shadow {
+                let attenuation = (light.intensity / (1.0 + 0.22 * light_dist)).max(0.0);
+                let normal = -scene.camera_forward;
+                let wrap = (normal.dot(light_dir) * 0.5 + 0.5).max(0.2);
+                let light_contrib = mul_vec3(sprite_color, light.color) * (attenuation * wrap);
+                diffuse += light_contrib;
+            }
+        }
+
+        return ambient + diffuse;
     }
 
     match hit_cube {
@@ -94,15 +153,19 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             let (hit_u, hit_v) = hit_uv;
 
             // Perturbación de normal mediante normal map (espacio tangente -> mundo)
-            let shading_normal = if let Some(norm_path) = cube.material.normal_map {
-                if scene.textures.has_texture(norm_path) {
-                    let sample = scene.textures.sample_uv(norm_path, hit_u, hit_v);
-                    let ts_normal = Vector3::new(
-                        sample.x * 2.0 - 1.0,
-                        sample.y * 2.0 - 1.0,
-                        sample.z * 2.0 - 1.0,
-                    );
-                    (tangent * ts_normal.x + bitangent * ts_normal.y + normal * ts_normal.z).normalized()
+            let shading_normal = if scene.use_normal_maps {
+                if let Some(norm_path) = cube.material.normal_map {
+                    if scene.textures.has_texture(norm_path) {
+                        let sample = scene.textures.sample_uv(norm_path, hit_u, hit_v);
+                        let ts_normal = Vector3::new(
+                            sample.x * 2.0 - 1.0,
+                            sample.y * 2.0 - 1.0,
+                            sample.z * 2.0 - 1.0,
+                        );
+                        (tangent * ts_normal.x + bitangent * ts_normal.y + normal * ts_normal.z).normalized()
+                    } else {
+                        normal
+                    }
                 } else {
                     normal
                 }
@@ -143,8 +206,9 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
 
                 let shadow_orig = hit_point + normal * 1e-3;
                 let mut in_shadow = false;
+
+                // Oclusión por cubos
                 for occluder in &scene.cubes {
-                    // Cubos casi totalmente transparentes dejan pasar la luz
                     if occluder.material.transparency > 0.7 {
                         continue;
                     }
@@ -152,6 +216,21 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                         if t > 1e-3 && t < (light_dist - 1e-3) {
                             in_shadow = true;
                             break;
+                        }
+                    }
+                }
+
+                // Oclusión por billboards respetando alpha
+                if !in_shadow {
+                    for bb in &scene.billboards {
+                        if let Some((t, u, v)) = bb.intersect(shadow_orig, light_dir, scene.camera_forward, scene.camera_right, scene.camera_up) {
+                            if t > 1e-3 && t < (light_dist - 1e-3) {
+                                let (_, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                                if alpha >= 0.5 {
+                                    in_shadow = true;
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
