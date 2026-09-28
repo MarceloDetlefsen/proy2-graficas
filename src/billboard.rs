@@ -9,11 +9,37 @@ pub struct Billboard {
     pub width: f32,
     pub height: f32,
     pub texture: &'static str, // debe tener canal alpha para recortar la silueta
+    pub casts_blob_shadow: bool,
+    pub emission: Vector3,
+    pub is_smoke: bool,
 }
 
 impl Billboard {
     pub fn new(position: Vector3, width: f32, height: f32, texture: &'static str) -> Self {
-        Billboard { position, width, height, texture }
+        Billboard {
+            position,
+            width,
+            height,
+            texture,
+            casts_blob_shadow: false,
+            emission: Vector3::zero(),
+            is_smoke: false,
+        }
+    }
+
+    pub fn with_blob_shadow(mut self, casts: bool) -> Self {
+        self.casts_blob_shadow = casts;
+        self
+    }
+
+    pub fn with_emission(mut self, emission: Vector3) -> Self {
+        self.emission = emission;
+        self
+    }
+
+    pub fn with_smoke(mut self, is_smoke: bool) -> Self {
+        self.is_smoke = is_smoke;
+        self
     }
 
     /// Intersección rayo-plano con orientación de cámara fija por frame y poda por `max_t`.

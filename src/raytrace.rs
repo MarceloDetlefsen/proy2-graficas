@@ -129,11 +129,23 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     }
 
     // Sombreado de billboard
-    if let Some((_bb, sprite_color, u, _v)) = hit_billboard {
+    if let Some((bb, sprite_color, u, _v)) = hit_billboard {
         let hit_point = origin + dir * closest_t;
+
+        let (effective_sprite_color, emission) = if bb.is_smoke {
+            // Teñido cálido abajo y frío arriba según altura sobre el fuego (~3.2 a ~9.0)
+            let height_t = ((hit_point.y - 3.2) / 5.5).clamp(0.0, 1.0);
+            let warm = Vector3::new(1.15, 0.95, 0.75);
+            let cold = Vector3::new(0.70, 0.82, 1.15);
+            let tint = warm * (1.0 - height_t) + cold * height_t;
+            (mul_vec3(sprite_color, tint), bb.emission)
+        } else {
+            (sprite_color, bb.emission)
+        };
+
         // Luz ambiental azul noche (estilo Chrono Trigger, +20% para leer relieve)
         let ambient_color = Vector3::new(0.12, 0.17, 0.36);
-        let ambient = mul_vec3(sprite_color, ambient_color);
+        let ambient = mul_vec3(effective_sprite_color, ambient_color);
         let mut diffuse = Vector3::zero();
 
         for light in &scene.lights {
@@ -144,7 +156,9 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             }
             let light_dir = light_vec / light_dist;
 
-            let in_shadow = if light.casts_shadow {
+            let in_shadow = if bb.is_smoke {
+                false // humo sin sombras por rayo
+            } else if light.casts_shadow {
                 let shadow_orig = hit_point - scene.camera_forward * 1e-3;
                 scene.grid.is_occluded(&scene.cubes, shadow_orig, light_dir, light_dist)
             } else {
@@ -163,12 +177,12 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                 let side_bias = (scene.camera_right.dot(to_fire_h) * (u - 0.5) * 1.5).clamp(-0.25, 0.25);
                 let fire_factor = (wrap + side_bias).clamp(0.2, 1.25);
 
-                let light_contrib = mul_vec3(sprite_color, light.color) * (attenuation * fire_factor);
+                let light_contrib = mul_vec3(effective_sprite_color, light.color) * (attenuation * fire_factor);
                 diffuse += light_contrib;
             }
         }
 
-        return ambient + diffuse;
+        return ambient + diffuse + emission;
     }
 
     match hit_cube {
@@ -292,7 +306,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             // Sombra blanda circular (blob) de ~0.5 bloques de radio bajo los pies de cada personaje
             let mut blob_shadow = 1.0f32;
             for bb in &scene.billboards {
-                if !bb.texture.contains("party") {
+                if !bb.casts_blob_shadow {
                     continue;
                 }
                 let dx = hit_point.x - bb.position.x;

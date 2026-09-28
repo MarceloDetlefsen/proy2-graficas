@@ -11,6 +11,7 @@ pub struct Cube {
     pub material: Material,
     pub tile_uv: bool,
     pub casts_shadow: bool,
+    pub log_axis: Option<char>, // None: estándar, Some('X'): veta a lo largo de X, Some('Z'): veta a lo largo de Z
 }
 
 impl Cube {
@@ -21,6 +22,7 @@ impl Cube {
             material,
             tile_uv: true,
             casts_shadow: true,
+            log_axis: None,
         }
     }
 
@@ -31,6 +33,7 @@ impl Cube {
             material,
             tile_uv: true,
             casts_shadow: true,
+            log_axis: None,
         }
     }
 
@@ -41,6 +44,11 @@ impl Cube {
 
     pub fn without_shadow(mut self) -> Self {
         self.casts_shadow = false;
+        self
+    }
+
+    pub fn with_log_axis(mut self, axis: char) -> Self {
+        self.log_axis = Some(axis);
         self
     }
 
@@ -128,23 +136,49 @@ impl Cube {
         if d_min_z < min_d { min_d = d_min_z; face = 4; }
         if d_max_z < min_d { face = 5; }
 
-        let (u, v) = if self.tile_uv {
-            match face {
-                0 => (hit_point.z - self.min.z, self.max.y - hit_point.y), // -X (izquierda)
-                1 => (self.max.z - hit_point.z, self.max.y - hit_point.y), // +X (derecha)
-                2 => (hit_point.x - self.min.x, self.max.z - hit_point.z), // -Y (abajo)
-                3 => (hit_point.x - self.min.x, hit_point.z - self.min.z), // +Y (arriba)
-                4 => (self.max.x - hit_point.x, self.max.y - hit_point.y), // -Z (atrás)
-                _ => (hit_point.x - self.min.x, self.max.y - hit_point.y), // +Z (frente)
+        let (u, v) = match self.log_axis {
+            Some('X') => {
+                // Eje largo en X: la veta (eje V) corre a lo largo de X en las 4 caras laterales
+                match face {
+                    0 => (hit_point.z - self.min.z, self.max.y - hit_point.y), // Tapa -X
+                    1 => (self.max.z - hit_point.z, self.max.y - hit_point.y), // Tapa +X
+                    2 => (hit_point.z - self.min.z, hit_point.x - self.min.x), // Lateral -Y
+                    3 => (hit_point.z - self.min.z, hit_point.x - self.min.x), // Lateral +Y (superior)
+                    4 => (self.max.y - hit_point.y, hit_point.x - self.min.x), // Lateral -Z (trasera)
+                    _ => (self.max.y - hit_point.y, hit_point.x - self.min.x), // Lateral +Z (delantera)
+                }
             }
-        } else {
-            match face {
-                0 => ((hit_point.z - self.min.z) / sz, (self.max.y - hit_point.y) / sy), // -X (izquierda)
-                1 => ((self.max.z - hit_point.z) / sz, (self.max.y - hit_point.y) / sy), // +X (derecha)
-                2 => ((hit_point.x - self.min.x) / sx, (self.max.z - hit_point.z) / sz), // -Y (abajo)
-                3 => ((hit_point.x - self.min.x) / sx, (hit_point.z - self.min.z) / sz), // +Y (arriba)
-                4 => ((self.max.x - hit_point.x) / sx, (self.max.y - hit_point.y) / sy), // -Z (atrás)
-                _ => ((hit_point.x - self.min.x) / sx, (self.max.y - hit_point.y) / sy), // +Z (frente)
+            Some('Z') => {
+                // Eje largo en Z: la veta (eje V) corre a lo largo de Z en las 4 caras laterales
+                match face {
+                    0 => (self.max.y - hit_point.y, hit_point.z - self.min.z), // Lateral -X
+                    1 => (self.max.y - hit_point.y, hit_point.z - self.min.z), // Lateral +X
+                    2 => (hit_point.x - self.min.x, hit_point.z - self.min.z), // Lateral -Y
+                    3 => (hit_point.x - self.min.x, hit_point.z - self.min.z), // Lateral +Y (superior)
+                    4 => (self.max.x - hit_point.x, self.max.y - hit_point.y), // Tapa -Z
+                    _ => (hit_point.x - self.min.x, self.max.y - hit_point.y), // Tapa +Z
+                }
+            }
+            _ => {
+                if self.tile_uv {
+                    match face {
+                        0 => (hit_point.z - self.min.z, self.max.y - hit_point.y), // -X (izquierda)
+                        1 => (self.max.z - hit_point.z, self.max.y - hit_point.y), // +X (derecha)
+                        2 => (hit_point.x - self.min.x, self.max.z - hit_point.z), // -Y (abajo)
+                        3 => (hit_point.x - self.min.x, hit_point.z - self.min.z), // +Y (arriba)
+                        4 => (self.max.x - hit_point.x, self.max.y - hit_point.y), // -Z (atrás)
+                        _ => (hit_point.x - self.min.x, self.max.y - hit_point.y), // +Z (frente)
+                    }
+                } else {
+                    match face {
+                        0 => ((hit_point.z - self.min.z) / sz, (self.max.y - hit_point.y) / sy), // -X (izquierda)
+                        1 => ((self.max.z - hit_point.z) / sz, (self.max.y - hit_point.y) / sy), // +X (derecha)
+                        2 => ((hit_point.x - self.min.x) / sx, (self.max.z - hit_point.z) / sz), // -Y (abajo)
+                        3 => ((hit_point.x - self.min.x) / sx, (hit_point.z - self.min.z) / sz), // +Y (arriba)
+                        4 => ((self.max.x - hit_point.x) / sx, (self.max.y - hit_point.y) / sy), // -Z (atrás)
+                        _ => ((hit_point.x - self.min.x) / sx, (self.max.y - hit_point.y) / sy), // +Z (frente)
+                    }
+                }
             }
         };
 
@@ -171,13 +205,31 @@ impl Cube {
         if d_min_z < min_d { min_d = d_min_z; face = 4; }
         if d_max_z < min_d { face = 5; }
 
-        match face {
-            0 => (Vector3::new(-1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0), Vector3::new(0.0, -1.0, 0.0)),
-            1 => (Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, -1.0), Vector3::new(0.0, -1.0, 0.0)),
-            2 => (Vector3::new(0.0, -1.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, -1.0)),
-            3 => (Vector3::new(0.0, 1.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
-            4 => (Vector3::new(0.0, 0.0, -1.0), Vector3::new(-1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),
-            _ => (Vector3::new(0.0, 0.0, 1.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),
+        match self.log_axis {
+            Some('X') => match face {
+                0 => (Vector3::new(-1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0), Vector3::new(0.0, -1.0, 0.0)),
+                1 => (Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, -1.0), Vector3::new(0.0, -1.0, 0.0)),
+                2 => (Vector3::new(0.0, -1.0, 0.0), Vector3::new(0.0, 0.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+                3 => (Vector3::new(0.0, 1.0, 0.0), Vector3::new(0.0, 0.0, 1.0), Vector3::new(1.0, 0.0, 0.0)),
+                4 => (Vector3::new(0.0, 0.0, -1.0), Vector3::new(0.0, -1.0, 0.0), Vector3::new(1.0, 0.0, 0.0)),
+                _ => (Vector3::new(0.0, 0.0, 1.0), Vector3::new(0.0, -1.0, 0.0), Vector3::new(1.0, 0.0, 0.0)),
+            },
+            Some('Z') => match face {
+                0 => (Vector3::new(-1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+                1 => (Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+                2 => (Vector3::new(0.0, -1.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+                3 => (Vector3::new(0.0, 1.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+                4 => (Vector3::new(0.0, 0.0, -1.0), Vector3::new(-1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),
+                _ => (Vector3::new(0.0, 0.0, 1.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),
+            },
+            _ => match face {
+                0 => (Vector3::new(-1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0), Vector3::new(0.0, -1.0, 0.0)),
+                1 => (Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, -1.0), Vector3::new(0.0, -1.0, 0.0)),
+                2 => (Vector3::new(0.0, -1.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, -1.0)),
+                3 => (Vector3::new(0.0, 1.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+                4 => (Vector3::new(0.0, 0.0, -1.0), Vector3::new(-1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),
+                _ => (Vector3::new(0.0, 0.0, 1.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),
+            },
         }
     }
 
