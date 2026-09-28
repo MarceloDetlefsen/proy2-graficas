@@ -22,6 +22,8 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/leaves.png", gen_leaves_texture);
     generate_if_missing("assets/fire.png", gen_fire_texture);
     generate_if_missing("assets/gem.png", gen_gem_texture);
+    generate_if_missing("assets/gem_cyan.png", gen_gem_cyan_texture);
+    generate_if_missing("assets/gem_magenta.png", gen_gem_magenta_texture);
     generate_if_missing("assets/water.png", gen_water_texture);
     generate_if_missing("assets/straw.png", gen_straw_texture);
     generate_if_missing("assets/tuft.png", gen_tuft_texture);
@@ -470,7 +472,7 @@ fn gen_stone_normal() -> Image {
             heights[y as usize][x as usize] = brick * 0.7 + bumps;
         }
     }
-    normal_from_heightmap(&heights, 3.2)
+    normal_from_heightmap(&heights, 2.4)
 }
 
 fn gen_bark_texture() -> Image {
@@ -507,7 +509,7 @@ fn gen_bark_normal() -> Image {
             heights[y as usize][x as usize] = ridge * 1.1 + noise;
         }
     }
-    normal_from_heightmap(&heights, 3.8)
+    normal_from_heightmap(&heights, 2.6)
 }
 
 fn gen_smoke_puff_0() -> Image { gen_smoke_puff_texture(0) }
@@ -656,6 +658,54 @@ fn gen_gem_texture() -> Image {
         }
     }
     // Destello blanco en esquina superior
+    img.draw_pixel(6, 6, Color::WHITE);
+    img.draw_pixel(7, 6, Color::WHITE);
+    img.draw_pixel(6, 7, Color::WHITE);
+    img
+}
+
+fn gen_gem_cyan_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(20, 140, 230, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let f1 = (x + y) / 8;
+            let f2 = (x - y + 32) / 8;
+            let is_edge = (x + y) % 8 == 0 || (x - y + 32) % 8 == 0;
+
+            let c = if is_edge {
+                Color::new(190, 245, 255, 255) // Arista facetada reflectante cian
+            } else if (f1 + f2) % 2 == 0 {
+                Color::new(50, 195, 255, 255)  // Cara brillante
+            } else {
+                Color::new(15, 120, 210, 255)  // Cara profunda saturada
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img.draw_pixel(6, 6, Color::WHITE);
+    img.draw_pixel(7, 6, Color::WHITE);
+    img.draw_pixel(6, 7, Color::WHITE);
+    img
+}
+
+fn gen_gem_magenta_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(210, 30, 180, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let f1 = (x + y) / 8;
+            let f2 = (x - y + 32) / 8;
+            let is_edge = (x + y) % 8 == 0 || (x - y + 32) % 8 == 0;
+
+            let c = if is_edge {
+                Color::new(255, 195, 255, 255) // Arista facetada reflectante magenta
+            } else if (f1 + f2) % 2 == 0 {
+                Color::new(245, 60, 215, 255)  // Cara brillante
+            } else {
+                Color::new(170, 15, 140, 255)  // Cara profunda saturada
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
     img.draw_pixel(6, 6, Color::WHITE);
     img.draw_pixel(7, 6, Color::WHITE);
     img.draw_pixel(6, 7, Color::WHITE);
