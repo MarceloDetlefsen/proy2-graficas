@@ -27,6 +27,9 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/tuft.png", gen_tuft_texture);
     generate_if_missing("assets/grass_tuft.png", gen_grass_tuft_texture);
     generate_if_missing("assets/planks.png", gen_planks_texture);
+    generate_if_missing("assets/smoke_puff_0.png", gen_smoke_puff_0);
+    generate_if_missing("assets/smoke_puff_1.png", gen_smoke_puff_1);
+    generate_if_missing("assets/smoke_puff_2.png", gen_smoke_puff_2);
 
     generate_if_missing("assets/party/hero.png", gen_hero_sprite);
     generate_if_missing("assets/party/mage.png", gen_mage_sprite);
@@ -467,7 +470,7 @@ fn gen_stone_normal() -> Image {
             heights[y as usize][x as usize] = brick * 0.7 + bumps;
         }
     }
-    normal_from_heightmap(&heights, 2.0)
+    normal_from_heightmap(&heights, 3.2)
 }
 
 fn gen_bark_texture() -> Image {
@@ -500,11 +503,94 @@ fn gen_bark_normal() -> Image {
             let rx = (x + wave + 32) % 8; // 0..8
             let dist_center = (rx as f32 - 3.5).abs();
             let ridge = 1.0 - (dist_center / 3.5); // 1.0 en el centro de la cresta, 0.0 en el surco
-            let noise = hash2d(x, y, 404) * 0.2;
-            heights[y as usize][x as usize] = ridge * 0.8 + noise;
+            let noise = hash2d(x, y, 404) * 0.25;
+            heights[y as usize][x as usize] = ridge * 1.1 + noise;
         }
     }
-    normal_from_heightmap(&heights, 2.2)
+    normal_from_heightmap(&heights, 3.8)
+}
+
+fn gen_smoke_puff_0() -> Image { gen_smoke_puff_texture(0) }
+fn gen_smoke_puff_1() -> Image { gen_smoke_puff_texture(1) }
+fn gen_smoke_puff_2() -> Image { gen_smoke_puff_texture(2) }
+
+/// Genera una textura de bocanada de humo tipo pixel-art (~24x24 px).
+/// Silueta irregular de nube, gris claro (~0.55-0.62) con dithering en damero en bordes e interior.
+fn gen_smoke_puff_texture(variant: usize) -> Image {
+    let mut img = Image::gen_image_color(24, 24, Color::BLANK);
+
+    // Centros y radios de los lóbulos de la nube según variante: (cx, cy, radius)
+    let lobes: [(f32, f32, f32); 4] = match variant {
+        0 => [(11.5, 12.5, 7.8), (7.5, 12.0, 5.2), (16.0, 11.5, 5.6), (12.0, 8.0, 5.0)],
+        1 => [(12.0, 12.0, 7.5), (8.0, 13.0, 5.5), (15.5, 10.5, 5.2), (11.0, 7.5, 5.2)],
+        _ => [(11.0, 11.5, 7.0), (7.0, 11.5, 4.8), (15.0, 12.0, 5.0), (12.5, 7.0, 4.8)],
+    };
+
+    for y in 0..24 {
+        for x in 0..24 {
+            let px = x as f32 + 0.5;
+            let py = y as f32 + 0.5;
+
+            // Distancia normalizada mínima al centro de los lóbulos
+            let mut min_norm_dist = 2.0f32;
+            for &(cx, cy, r) in &lobes {
+                let dx = px - cx;
+                let dy = py - cy;
+                let d = (dx * dx + dy * dy).sqrt() / r;
+                if d < min_norm_dist {
+                    min_norm_dist = d;
+                }
+            }
+
+            if min_norm_dist <= 1.0 {
+                // Color gris claro: superior ligeramente más claro (~0.62), inferior ~0.55
+                let norm_y = (py / 24.0).clamp(0.0, 1.0);
+                let shade = 160.0 - norm_y * 20.0;
+                let c = Color::new(shade as u8, (shade + 2.0) as u8, (shade + 6.0) as u8, 255);
+
+                // Dithering en damero para translucidez pixel-art
+                let is_checker = (x + y) % 2 == 1;
+                let is_sparse = (x * 2 + y) % 3 != 0;
+
+                let opaque = match variant {
+                    0 => {
+                        // Base densa: solo damero en borde exterior
+                        if min_norm_dist > 0.88 {
+                            !is_checker
+                        } else if min_norm_dist > 0.78 {
+                            !is_sparse
+                        } else {
+                            true
+                        }
+                    }
+                    1 => {
+                        // Medio: damero en borde y moteado sutil en interior
+                        if min_norm_dist > 0.82 {
+                            !is_checker
+                        } else if min_norm_dist > 0.65 {
+                            !is_sparse
+                        } else {
+                            true
+                        }
+                    }
+                    _ => {
+                        // Alto (ralo): damero extendido por todo el cuerpo para ver estrellas a través
+                        if min_norm_dist > 0.80 {
+                            !is_sparse
+                        } else {
+                            !is_checker
+                        }
+                    }
+                };
+
+                if opaque {
+                    img.draw_pixel(x, y, c);
+                }
+            }
+        }
+    }
+
+    img
 }
 
 fn gen_leaves_texture() -> Image {
