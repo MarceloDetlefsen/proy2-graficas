@@ -78,9 +78,10 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     }
 
     // Sombreado de billboard
-    if let Some((_bb, sprite_color, _u, _v)) = hit_billboard {
+    if let Some((_bb, sprite_color, u, _v)) = hit_billboard {
         let hit_point = origin + dir * closest_t;
-        let ambient = sprite_color * 0.15;
+        // Luz ambiental base para que los personajes nunca queden completamente negros
+        let ambient = sprite_color * 0.22;
         let mut diffuse = Vector3::zero();
 
         for light in &scene.lights {
@@ -107,10 +108,17 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             }
 
             if !in_shadow {
-                let attenuation = (light.intensity / (1.0 + 0.22 * light_dist)).max(0.0);
+                // Atenuación suave por distancia a la fogata
+                let attenuation = (light.intensity / (1.0 + 0.20 * light_dist + 0.04 * light_dist * light_dist)).max(0.0);
                 let normal = -scene.camera_forward;
-                let wrap = (normal.dot(light_dir) * 0.5 + 0.5).max(0.2);
-                let light_contrib = mul_vec3(sprite_color, light.color) * (attenuation * wrap);
+                let wrap = (normal.dot(light_dir) * 0.5 + 0.5).max(0.25);
+
+                // Gradiente horizontal: el lado del sprite orientado hacia la fogata recibe más iluminación cálida
+                let to_fire_h = Vector3::new(light_vec.x, 0.0, light_vec.z).normalized();
+                let side_bias = (scene.camera_right.dot(to_fire_h) * (u - 0.5) * 1.5).clamp(-0.25, 0.25);
+                let fire_factor = (wrap + side_bias).clamp(0.2, 1.25);
+
+                let light_contrib = mul_vec3(sprite_color, light.color) * (attenuation * fire_factor);
                 diffuse += light_contrib;
             }
         }
@@ -220,21 +228,6 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                     }
                 }
 
-                // Oclusión por billboards respetando alpha
-                if !in_shadow {
-                    for bb in &scene.billboards {
-                        if let Some((t, u, v)) = bb.intersect(shadow_orig, light_dir, scene.camera_forward, scene.camera_right, scene.camera_up) {
-                            if t > 1e-3 && t < (light_dist - 1e-3) {
-                                let (_, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
-                                if alpha >= 0.5 {
-                                    in_shadow = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
                 if !in_shadow {
                     let attenuation = (light.intensity / (1.0 + 0.22 * light_dist)).max(0.0);
                     let diffuse = mul_vec3(base_color, light.color) * (n_dot_l * attenuation);
@@ -253,7 +246,25 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                 }
             }
 
-            let local_shading = ambient + diffuse_specular;
+            // Sombra blanda circular (blob) de ~0.5 bloques de radio bajo los pies de cada personaje
+            let mut blob_shadow = 1.0f32;
+            for bb in &scene.billboards {
+                let dx = hit_point.x - bb.position.x;
+                let dz = hit_point.z - bb.position.z;
+                let dy = hit_point.y - bb.position.y;
+                if dy >= -0.25 && dy <= 0.15 {
+                    let dist = (dx * dx + dz * dz).sqrt();
+                    let radius = 0.5f32;
+                    if dist < radius {
+                        let t = dist / radius;
+                        let falloff = 1.0 - t * t * (3.0 - 2.0 * t);
+                        let s = 1.0 - 0.65 * falloff;
+                        blob_shadow = blob_shadow.min(s);
+                    }
+                }
+            }
+
+            let local_shading = (ambient + diffuse_specular) * blob_shadow;
             let mut final_color = local_shading;
 
             // 1 & 2. Refracción y reflexión recursivas

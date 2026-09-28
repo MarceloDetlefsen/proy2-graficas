@@ -34,6 +34,20 @@ pub fn terrain_height_at(cubes: &[Cube], x: f32, z: f32) -> f32 {
     if found { max_y } else { 3.0 }
 }
 
+/// Lee las dimensiones de un archivo PNG desde su cabecera IHDR y devuelve su relación de aspecto (width / height).
+pub fn get_png_aspect_ratio(path: &str) -> f32 {
+    if let Ok(bytes) = std::fs::read(path) {
+        if bytes.len() >= 24 && &bytes[0..8] == b"\x89PNG\r\n\x1a\n" {
+            let w = u32::from_be_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]) as f32;
+            let h = u32::from_be_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]) as f32;
+            if h > 0.0 {
+                return w / h;
+            }
+        }
+    }
+    0.5
+}
+
 impl Scene {
     /// Arma el diorama: "Campamento nocturno" (16x16 mínimo de terreno).
     pub fn campfire_diorama() -> Self {
@@ -81,18 +95,34 @@ impl Scene {
         // --- Luces ---
         let lights = vec![Light::campfire(Vector3::new(0.0, ground_y + 0.8, 0.0))];
 
-        // --- Personajes (billboards con sprites pixel-art en semicírculo sobre el terreno real) ---
-        let party_configs = [
-            (-1.8, -0.6, "assets/party/hero.png"),
-            (-0.9, -1.8, "assets/party/mage.png"),
-            (0.9, -1.8, "assets/party/warrior.png"),
-            (1.8, -0.6, "assets/party/rogue.png"),
+        // --- Personajes (7 miembros de Chrono Trigger en círculo alrededor de la fogata) ---
+        let party_defs: [(&str, f32); 7] = [
+            ("assets/party/Lucca.png", 0.90),
+            ("assets/party/Frog.png", 0.75),
+            ("assets/party/Chrono.png", 1.00),
+            ("assets/party/Robo.png", 1.10),
+            ("assets/party/Magus.png", 1.05),
+            ("assets/party/Ayla.png", 1.00),
+            ("assets/party/Marle.png", 0.95),
         ];
 
+        let base_height = 1.8f32;
+        let radius = 2.7f32;
+        let base_angle = 20.0f32.to_radians();
+        let angle_step = std::f32::consts::TAU / 7.0;
+
         let mut billboards = Vec::new();
-        for (x, z, tex) in party_configs {
+        for (i, &(tex, mult)) in party_defs.iter().enumerate() {
+            let angle = base_angle + (i as f32) * angle_step;
+            let x = radius * angle.sin();
+            let z = radius * angle.cos();
             let y = terrain_height_at(&cubes, x, z);
-            billboards.push(Billboard::new(Vector3::new(x, y, z), 1.0, 1.4, tex));
+
+            let height = base_height * mult;
+            let aspect = get_png_aspect_ratio(tex);
+            let width = height * aspect;
+
+            billboards.push(Billboard::new(Vector3::new(x, y, z), width, height, tex));
         }
 
         Scene {
@@ -121,10 +151,13 @@ impl Scene {
             "assets/fire.png",
             "assets/gem.png",
             "assets/water.png",
-            "assets/party/hero.png",
-            "assets/party/mage.png",
-            "assets/party/warrior.png",
-            "assets/party/rogue.png",
+            "assets/party/Chrono.png",
+            "assets/party/Marle.png",
+            "assets/party/Lucca.png",
+            "assets/party/Frog.png",
+            "assets/party/Robo.png",
+            "assets/party/Ayla.png",
+            "assets/party/Magus.png",
         ];
         for path in paths {
             self.textures.load_texture(rl, thread, path);
