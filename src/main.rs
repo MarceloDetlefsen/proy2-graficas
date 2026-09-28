@@ -29,11 +29,132 @@ pub fn preset_1_camera() -> Camera {
     Camera::new(PRESET_1_EYE, PRESET_1_TARGET, Vector3::new(0.0, 1.0, 0.0))
 }
 
+pub const PRESET_2_EYE: Vector3 = Vector3::new(3.00, 16.50, 13.50);
+pub const PRESET_2_TARGET: Vector3 = Vector3::new(0.50, 3.80, -0.60);
+
+pub fn preset_2_camera() -> Camera {
+    Camera::new(PRESET_2_EYE, PRESET_2_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// --- Cámaras de personajes (Teclas 3 a 9) ---
+// 3 = Chrono
+pub const CHRONO_TARGET: Vector3 = Vector3::new(2.40, 4.80, 2.40);
+pub const CHRONO_EYE: Vector3 = Vector3::new(1.56, 5.10, 4.70);
+pub fn chrono_camera() -> Camera {
+    Camera::new(CHRONO_EYE, CHRONO_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// 4 = Marle
+pub const MARLE_TARGET: Vector3 = Vector3::new(-2.20, 4.755, 2.20);
+pub const MARLE_EYE: Vector3 = Vector3::new(-1.40, 5.055, 4.39);
+pub fn marle_camera() -> Camera {
+    Camera::new(MARLE_EYE, MARLE_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// 5 = Lucca
+pub const LUCCA_TARGET: Vector3 = Vector3::new(0.90, 4.81, -3.20);
+pub const LUCCA_EYE: Vector3 = Vector3::new(0.14, 5.11, -1.12);
+pub fn lucca_camera() -> Camera {
+    Camera::new(LUCCA_EYE, LUCCA_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// 6 = Robo
+pub const ROBO_TARGET: Vector3 = Vector3::new(-1.80, 4.99, -2.80);
+pub const ROBO_EYE: Vector3 = Vector3::new(-1.25, 5.40, -0.40);
+pub fn robo_camera() -> Camera {
+    Camera::new(ROBO_EYE, ROBO_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// 7 = Frog (+ Masamune)
+pub const FROG_TARGET: Vector3 = Vector3::new(-4.30, 4.45, -0.40);
+pub const FROG_EYE: Vector3 = Vector3::new(-3.61, 4.75, 1.51);
+pub fn frog_camera() -> Camera {
+    Camera::new(FROG_EYE, FROG_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// 8 = Ayla
+pub const AYLA_TARGET: Vector3 = Vector3::new(3.90, 4.90, -0.40);
+pub const AYLA_EYE: Vector3 = Vector3::new(3.06, 5.20, 1.90);
+pub fn ayla_camera() -> Camera {
+    Camera::new(AYLA_EYE, AYLA_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// 9 = Magus
+pub const MAGUS_TARGET: Vector3 = Vector3::new(5.60, 4.945, -2.60);
+pub const MAGUS_EYE: Vector3 = Vector3::new(4.72, 5.245, -0.17);
+pub fn magus_camera() -> Camera {
+    Camera::new(MAGUS_EYE, MAGUS_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// --- Tomas especiales (F1 a F4) ---
+// F1 = Gemas closeup
+pub const F1_GEMS_TARGET: Vector3 = Vector3::new(0.00, 4.25, 0.40);
+pub const F1_GEMS_EYE: Vector3 = Vector3::new(0.00, 4.75, 2.65);
+pub fn f1_gems_camera() -> Camera {
+    Camera::new(F1_GEMS_EYE, F1_GEMS_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// F2 = Tronco B (Toma 6)
 pub const TOMA_6_EYE: Vector3 = Vector3::new(-2.15, 4.35, -0.40);
 pub const TOMA_6_TARGET: Vector3 = Vector3::new(-2.85, 4.22, -0.40);
-
 pub fn toma_6_camera() -> Camera {
     Camera::new(TOMA_6_EYE, TOMA_6_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+pub fn f2_log_camera() -> Camera { toma_6_camera() }
+
+// F3 = Humo hacia arriba
+pub const F3_SMOKE_TARGET: Vector3 = Vector3::new(0.00, 7.80, 0.20);
+pub const F3_SMOKE_EYE: Vector3 = Vector3::new(0.00, 4.30, 2.50);
+pub fn f3_smoke_camera() -> Camera {
+    Camera::new(F3_SMOKE_EYE, F3_SMOKE_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// F4 = Portal escondido (centrado en pantalla, ocupando >= 15% del ancho)
+pub const F4_PORTAL_TARGET: Vector3 = Vector3::new(1.05, 4.55, -8.65);
+pub const F4_PORTAL_EYE: Vector3 = Vector3::new(1.05, 4.55, -6.15);
+pub fn f4_portal_camera() -> Camera {
+    Camera::new(F4_PORTAL_EYE, F4_PORTAL_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+// Arroyo para reflejos ON/OFF
+pub const ARROYO_TARGET: Vector3 = Vector3::new(3.00, 3.45, 5.20);
+pub const ARROYO_EYE: Vector3 = Vector3::new(-4.00, 3.60, 4.35);
+pub fn arroyo_camera() -> Camera {
+    Camera::new(ARROYO_EYE, ARROYO_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+#[derive(Clone, Copy)]
+struct CameraTransition {
+    start_eye: Vector3,
+    start_target: Vector3,
+    end_eye: Vector3,
+    end_target: Vector3,
+    elapsed: f32,
+    duration: f32,
+}
+
+impl CameraTransition {
+    fn new(start_eye: Vector3, start_target: Vector3, end_eye: Vector3, end_target: Vector3, duration: f32) -> Self {
+        Self {
+            start_eye,
+            start_target,
+            end_eye,
+            end_target,
+            elapsed: 0.0,
+            duration,
+        }
+    }
+
+    fn update(&mut self, dt: f32) -> (Vector3, Vector3, bool) {
+        self.elapsed += dt;
+        let t = (self.elapsed / self.duration).clamp(0.0, 1.0);
+        // Smoothstep ease-in / ease-out: 3t^2 - 2t^3
+        let ease = t * t * (3.0 - 2.0 * t);
+        let eye = self.start_eye + (self.end_eye - self.start_eye) * ease;
+        let target = self.start_target + (self.end_target - self.start_target) * ease;
+        let finished = t >= 1.0;
+        (eye, target, finished)
+    }
 }
 
 /// Calcula la vista de cámara para el auto-orbit según la especificación:
@@ -97,84 +218,81 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let check_layout = args.iter().any(|a| a == "--check-layout");
     let docs_mode = args.iter().any(|a| a == "--docs");
-    let toma5 = args.iter().any(|a| a == "--toma5" || a == "--gem-closeup" || a == "--gem");
-    let toma6_on = args.iter().any(|a| a == "--toma6-on" || a == "--log-normal");
-    let toma6_off = args.iter().any(|a| a == "--toma6-off" || a == "--log-nonormal");
-    let toma7 = args.iter().any(|a| a == "--toma7" || a == "--smoke");
+    let f1_gem = args.iter().any(|a| a == "--f1" || a == "--gem" || a == "--toma5");
+    let f2_on = args.iter().any(|a| a == "--f2" || a == "--toma6-on" || a == "--log-normal");
+    let f2_off = args.iter().any(|a| a == "--toma6-off" || a == "--log-nonormal");
+    let f3_smoke = args.iter().any(|a| a == "--f3" || a == "--smoke" || a == "--toma7");
+    let f4_portal = args.iter().any(|a| a == "--f4" || a == "--portal");
+    let chrono_view = args.iter().any(|a| a == "--chrono" || a == "--toma3");
+    let marle_view = args.iter().any(|a| a == "--marle");
+    let lucca_view = args.iter().any(|a| a == "--lucca");
+    let robo_view = args.iter().any(|a| a == "--robo");
+    let frog_view = args.iter().any(|a| a == "--frog" || a == "--masamune" || a == "--toma4");
+    let ayla_view = args.iter().any(|a| a == "--ayla");
+    let magus_view = args.iter().any(|a| a == "--magus");
+    let arroyo_on = args.iter().any(|a| a == "--arroyo-on");
+    let arroyo_off = args.iter().any(|a| a == "--arroyo-off");
     let elevated = args.iter().any(|a| a == "--elevated" || a == "--toma2");
-    let wasd_view = args.iter().any(|a| a == "--wasd-view" || a == "--toma3");
-    let toma4_masamune = args.iter().any(|a| a == "--toma4" || a == "--masamune" || a == "--frog" || a == "--gate-closeup" || a == "--gate");
-    let glint_view = args.iter().any(|a| a == "--glint" || a == "--easter-egg");
     let frames_arg = args.iter().position(|a| a == "--frames").and_then(|idx| args.get(idx + 1)).and_then(|s| s.parse::<usize>().ok());
     let moving_mode = args.iter().any(|a| a == "--moving");
     let headless = args.iter().any(|a| a == "--screenshot")
         || check_layout
         || docs_mode
-        || toma5
-        || toma6_on
-        || toma6_off
-        || toma7
+        || f1_gem
+        || f2_on
+        || f2_off
+        || f3_smoke
+        || f4_portal
+        || chrono_view
+        || marle_view
+        || lucca_view
+        || robo_view
+        || frog_view
+        || ayla_view
+        || magus_view
+        || arroyo_on
+        || arroyo_off
         || elevated
-        || wasd_view
-        || toma4_masamune
-        || glint_view
         || frames_arg.is_some();
 
     // 2. Crear la escena y cargar texturas en CPU
     let mut scene = Scene::campfire_diorama();
     scene.load_textures(&mut rl, &thread);
 
-    if toma6_off {
+    if f2_off {
         scene.use_normal_maps = false;
     }
+    if arroyo_off {
+        scene.use_reflections = false;
+    }
 
-    let mut camera = if toma6_on || toma6_off {
-        // Toma 6: Tronco de asiento libre visto de lado a ~1 bloque con luz rasante del fuego (>= 60% cuadro)
-        toma_6_camera()
-    } else if glint_view {
-        // Closeup del destello del Gate (Easter egg escondido detrás del árbol)
-        Camera::new(
-            Vector3::new(-2.60, 5.00, -6.60),
-            Vector3::new(-3.80, 4.80, -8.65),
-            Vector3::new(0.0, 1.0, 0.0),
-        )
-    } else if toma5 {
-        // Toma 5: Closeup de las dos gemas con la llama entre ellas distorsionada por refracción
-        Camera::new(
-            Vector3::new(0.00, 4.75, 2.65),
-            Vector3::new(0.00, 4.25, 0.40),
-            Vector3::new(0.0, 1.0, 0.0),
-        )
-    } else if toma7 {
-        // Toma 7: Humo mirando hacia arriba contra las estrellas
-        Camera::new(
-            Vector3::new(0.00, 4.30, 2.50),
-            Vector3::new(0.00, 7.80, 0.20),
-            Vector3::new(0.0, 1.0, 0.0),
-        )
-    } else if toma4_masamune {
-        // Toma 4: Closeup de la Masamune clavada en el suelo junto a Frog
-        Camera::new(
-            Vector3::new(-3.40, 4.80, 1.20),
-            Vector3::new(-4.40, 4.30, -0.30),
-            Vector3::new(0.0, 1.0, 0.0),
-        )
-    } else if wasd_view {
-        // Toma 3: Vista a nivel del suelo a través del claro y la fogata
-        Camera::new(
-            Vector3::new(4.50, 4.60, 3.80),
-            Vector3::new(-1.50, 4.20, -1.00),
-            Vector3::new(0.0, 1.0, 0.0),
-        )
+    let mut camera = if f2_on || f2_off {
+        f2_log_camera()
+    } else if f1_gem {
+        f1_gems_camera()
+    } else if f3_smoke {
+        f3_smoke_camera()
+    } else if f4_portal {
+        f4_portal_camera()
+    } else if chrono_view {
+        chrono_camera()
+    } else if marle_view {
+        marle_camera()
+    } else if lucca_view {
+        lucca_camera()
+    } else if robo_view {
+        robo_camera()
+    } else if frog_view {
+        frog_camera()
+    } else if ayla_view {
+        ayla_camera()
+    } else if magus_view {
+        magus_camera()
+    } else if arroyo_on || arroyo_off {
+        arroyo_camera()
     } else if elevated {
-        // Toma 2: Vista cenital / elevada general del claro y el diorama completo
-        Camera::new(
-            Vector3::new(3.00, 16.50, 13.50),
-            Vector3::new(0.50, 3.80, -0.60),
-            Vector3::new(0.0, 1.0, 0.0),
-        )
+        preset_2_camera()
     } else {
-        // Toma 1: Encuadre inicial frontal con vista completa del campamento nocturno
         preset_1_camera()
     };
 
@@ -186,36 +304,40 @@ fn main() {
     let mut framebuffer = vec![Color::BLACK; (WIDTH * HEIGHT) as usize];
     let mut screenshot_saved = false;
 
-    // Procesar flag --docs para generar las 9 capturas oficiales en docs/screenshots/
+    // Procesar flag --docs para generar la suite oficial de capturas en docs/screenshots/
     if docs_mode {
         std::fs::create_dir_all("docs/screenshots").expect("Failed to create docs/screenshots directory");
-        println!("Generando las 9 capturas oficiales de documentación (--docs)...");
+        println!("Generando la suite completa de capturas oficiales de documentación (--docs)...");
 
-        let (orbit_eye_12, orbit_target_12) = get_orbit_camera(12.0);
-        let shots: [(&str, Camera, bool); 9] = [
-            ("docs/screenshots/01_encuadre_inicial.png", preset_1_camera(), true),
-            ("docs/screenshots/02_vista_elevada.png", Camera::new(Vector3::new(3.00, 16.50, 13.50), Vector3::new(0.50, 3.80, -0.60), Vector3::new(0.0, 1.0, 0.0)), true),
-            ("docs/screenshots/03_gemas_refraccion.png", Camera::new(Vector3::new(0.00, 4.75, 2.65), Vector3::new(0.00, 4.25, 0.40), Vector3::new(0.0, 1.0, 0.0)), true),
-            ("docs/screenshots/04_tronco_normal_on.png", toma_6_camera(), true),
-            ("docs/screenshots/05_tronco_normal_off.png", toma_6_camera(), false),
-            ("docs/screenshots/06_humo_estrellas.png", Camera::new(Vector3::new(0.00, 4.30, 2.50), Vector3::new(0.00, 7.80, 0.20), Vector3::new(0.0, 1.0, 0.0)), true),
-            ("docs/screenshots/07_arroyo_reflejo.png", Camera::new(Vector3::new(-4.20, 3.80, 5.00), Vector3::new(0.50, 3.45, 5.00), Vector3::new(0.0, 1.0, 0.0)), true),
-            ("docs/screenshots/08_masamune.png", Camera::new(Vector3::new(-3.40, 4.80, 1.20), Vector3::new(-4.40, 4.30, -0.30), Vector3::new(0.0, 1.0, 0.0)), true),
-            ("docs/screenshots/09_portal_escondido.png", Camera::new(orbit_eye_12, orbit_target_12, Vector3::new(0.0, 1.0, 0.0)), true),
+        let shots: [(&str, Camera, bool, bool); 17] = [
+            ("docs/screenshots/01_encuadre_inicial.png", preset_1_camera(), true, true),
+            ("docs/screenshots/02_vista_elevada.png", preset_2_camera(), true, true),
+            ("docs/screenshots/03_gemas_refraccion.png", f1_gems_camera(), true, true),
+            ("docs/screenshots/04_tronco_normal_on.png", f2_log_camera(), true, true),
+            ("docs/screenshots/05_tronco_normal_off.png", f2_log_camera(), false, true),
+            ("docs/screenshots/06_humo_estrellas.png", f3_smoke_camera(), true, true),
+            ("docs/screenshots/07_arroyo_reflejo_on.png", arroyo_camera(), true, true),
+            ("docs/screenshots/07_arroyo_reflejo_off.png", arroyo_camera(), true, false),
+            ("docs/screenshots/08_masamune.png", Camera::new(Vector3::new(-3.40, 4.80, 1.20), Vector3::new(-4.40, 4.30, -0.30), Vector3::new(0.0, 1.0, 0.0)), true, true),
+            ("docs/screenshots/09_portal_escondido.png", f4_portal_camera(), true, true),
+            ("docs/screenshots/10_chrono.png", chrono_camera(), true, true),
+            ("docs/screenshots/11_marle.png", marle_camera(), true, true),
+            ("docs/screenshots/12_lucca.png", lucca_camera(), true, true),
+            ("docs/screenshots/13_robo.png", robo_camera(), true, true),
+            ("docs/screenshots/14_frog.png", frog_camera(), true, true),
+            ("docs/screenshots/15_ayla.png", ayla_camera(), true, true),
+            ("docs/screenshots/16_magus.png", magus_camera(), true, true),
         ];
 
-        for (path, mut cam, use_nm) in shots {
+        for (path, mut cam, use_nm, use_refl) in shots {
             scene.use_normal_maps = use_nm;
+            scene.use_reflections = use_refl;
+            cam.resolve_collision(&scene.cubes);
             cam.update_basis_vectors();
             scene.camera_forward = cam.forward;
             scene.camera_right = cam.right;
             scene.camera_up = cam.up;
-            let cam_dist = (cam.eye - cam.center).length();
-            if path.contains("09_portal_escondido") {
-                scene.tree_cutaway_dist = Some(cam_dist - 1.5);
-            } else {
-                scene.tree_cutaway_dist = None;
-            }
+            scene.tree_cutaway_dist = None;
 
             render(&scene, &cam, &mut framebuffer, 1);
 
@@ -306,6 +428,7 @@ fn main() {
     let mut rendered_fullres = false;
     let mut auto_orbit = false;
     let mut orbit_time = 0.0f32;
+    let mut transition: Option<CameraTransition> = None;
 
     while !rl.window_should_close() {
         if let Some(ref m) = music {
@@ -324,54 +447,70 @@ fn main() {
             rendered_fullres = false;
         }
 
+        // --- Toggle de reflexiones: tecla X ---
+        if rl.is_key_pressed(KeyboardKey::KEY_X) {
+            scene.use_reflections = !scene.use_reflections;
+            println!("Reflexiones: {}", if scene.use_reflections { "ACTIVADAS" } else { "DESACTIVADAS" });
+            camera.orbit(0.0, 0.0);
+            needs_fullres = true;
+            rendered_fullres = false;
+        }
+
         // --- Auto-órbita con tecla R: 360° en 24 s, resolución completa ---
         if rl.is_key_pressed(KeyboardKey::KEY_R) {
             auto_orbit = !auto_orbit;
+            transition = None;
             println!("Auto-órbita: {}", if auto_orbit { "ACTIVADA (resolución completa)" } else { "DESACTIVADA" });
         }
 
-        // --- Presets de tomas: Teclas 1 a 7 ---
+        // --- Presets de tomas: Teclas 1 a 9 y F1 a F4 ---
+        let mut target_view: Option<(Vector3, Vector3, &'static str)> = None;
+
         if rl.is_key_pressed(KeyboardKey::KEY_ONE) {
-            // Toma 1: Encuadre inicial mirando a la fogata
-            camera.set_view(PRESET_1_EYE, PRESET_1_TARGET);
-            auto_orbit = false;
-            moved = true;
+            target_view = Some((PRESET_1_EYE, PRESET_1_TARGET, "1: Encuadre Inicial"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_TWO) {
+            target_view = Some((PRESET_2_EYE, PRESET_2_TARGET, "2: Vista Elevada"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_THREE) {
+            target_view = Some((CHRONO_EYE, CHRONO_TARGET, "3: Chrono"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_FOUR) {
+            target_view = Some((MARLE_EYE, MARLE_TARGET, "4: Marle"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_FIVE) {
+            target_view = Some((LUCCA_EYE, LUCCA_TARGET, "5: Lucca"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_SIX) {
+            target_view = Some((ROBO_EYE, ROBO_TARGET, "6: Robo"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_SEVEN) {
+            target_view = Some((FROG_EYE, FROG_TARGET, "7: Frog & Masamune"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_EIGHT) {
+            target_view = Some((AYLA_EYE, AYLA_TARGET, "8: Ayla"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_NINE) {
+            target_view = Some((MAGUS_EYE, MAGUS_TARGET, "9: Magus"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_F1) {
+            target_view = Some((F1_GEMS_EYE, F1_GEMS_TARGET, "F1: Closeup Gemas"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_F2) {
+            target_view = Some((TOMA_6_EYE, TOMA_6_TARGET, "F2: Tronco Rasante (N ON/OFF)"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_F3) {
+            target_view = Some((F3_SMOKE_EYE, F3_SMOKE_TARGET, "F3: Humo hacia Estrellas"));
+        } else if rl.is_key_pressed(KeyboardKey::KEY_F4) {
+            target_view = Some((F4_PORTAL_EYE, F4_PORTAL_TARGET, "F4: Portal Escondido"));
         }
-        if rl.is_key_pressed(KeyboardKey::KEY_TWO) {
-            // Toma 2: Vista cenital / elevada general
-            camera.set_view(Vector3::new(3.00, 16.50, 13.50), Vector3::new(0.50, 3.80, -0.60));
+
+        if let Some((dst_eye, dst_target, name)) = target_view {
+            println!("Transición de cámara -> {}", name);
+            transition = Some(CameraTransition::new(camera.eye, camera.center, dst_eye, dst_target, 0.5));
             auto_orbit = false;
-            moved = true;
+            scene.tree_cutaway_dist = None;
         }
-        if rl.is_key_pressed(KeyboardKey::KEY_THREE) {
-            // Toma 3: Vista a nivel de suelo a través del claro y la fogata
-            camera.set_view(Vector3::new(4.50, 4.60, 3.80), Vector3::new(-1.50, 4.20, -1.00));
-            auto_orbit = false;
+
+        // --- Actualización de transición suave de cámara (~0.5s con smoothstep ease in/out) ---
+        if let Some(ref mut tr) = transition {
+            let (eye, target, done) = tr.update(dt);
+            camera.set_view(eye, target);
+            camera.resolve_collision(&scene.cubes);
+            camera.update_basis_vectors();
             moved = true;
-        }
-        if rl.is_key_pressed(KeyboardKey::KEY_FOUR) {
-            // Toma 4: Closeup de la Masamune clavada en el suelo junto a Frog
-            camera.set_view(Vector3::new(-3.40, 4.80, 1.20), Vector3::new(-4.40, 4.30, -0.30));
-            auto_orbit = false;
-            moved = true;
-        }
-        if rl.is_key_pressed(KeyboardKey::KEY_FIVE) {
-            // Toma 5: Closeup de las dos gemas con la llama entre ellas
-            camera.set_view(Vector3::new(0.00, 4.75, 2.65), Vector3::new(0.00, 4.25, 0.40));
-            auto_orbit = false;
-            moved = true;
-        }
-        if rl.is_key_pressed(KeyboardKey::KEY_SIX) {
-            // Toma 6: Tronco de asiento libre visto de lado a ~1 bloque con luz rasante del fuego
-            camera.set_view(TOMA_6_EYE, TOMA_6_TARGET);
-            auto_orbit = false;
-            moved = true;
-        }
-        if rl.is_key_pressed(KeyboardKey::KEY_SEVEN) {
-            // Toma 7: Humo mirando hacia arriba contra las estrellas
-            camera.set_view(Vector3::new(0.00, 4.30, 2.50), Vector3::new(0.00, 7.80, 0.20));
-            auto_orbit = false;
-            moved = true;
+            if done {
+                transition = None;
+            }
         }
 
         // --- Movimiento WASD / QE del punto de mira ---
@@ -392,6 +531,7 @@ fn main() {
         if rl.is_key_down(KeyboardKey::KEY_E) { upw -= move_speed; }
 
         if fwd != 0.0 || rgt != 0.0 || upw != 0.0 {
+            transition = None;
             camera.move_target(fwd, rgt, upw, &scene.cubes);
             moved = true;
             auto_orbit = false;
@@ -399,27 +539,32 @@ fn main() {
 
         // --- Órbita con flechas del teclado y zoom con scroll ---
         if rl.is_key_down(KeyboardKey::KEY_LEFT) {
+            transition = None;
             camera.orbit(-1.5 * dt, 0.0);
             moved = true;
             auto_orbit = false;
         }
         if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
+            transition = None;
             camera.orbit(1.5 * dt, 0.0);
             moved = true;
             auto_orbit = false;
         }
         if rl.is_key_down(KeyboardKey::KEY_UP) {
+            transition = None;
             camera.orbit(0.0, 1.0 * dt);
             moved = true;
             auto_orbit = false;
         }
         if rl.is_key_down(KeyboardKey::KEY_DOWN) {
+            transition = None;
             camera.orbit(0.0, -1.0 * dt);
             moved = true;
             auto_orbit = false;
         }
         let wheel = rl.get_mouse_wheel_move();
         if wheel != 0.0 {
+            transition = None;
             camera.zoom(wheel * 0.5);
             moved = true;
             auto_orbit = false;
@@ -496,20 +641,34 @@ fn main() {
                         img.draw_pixel(x, y, framebuffer[(y * WIDTH + x) as usize]);
                     }
                 }
-                let out_file = if toma6_on {
-                    "screenshot_toma6_n_on.png"
-                } else if toma6_off {
-                    "screenshot_toma6_n_off.png"
-                } else if toma5 {
-                    "screenshot_toma5.png"
-                } else if toma7 {
-                    "screenshot_toma7.png"
-                } else if toma4_masamune {
-                    "screenshot_masamune.png"
-                } else if glint_view {
-                    "screenshot_glint.png"
-                } else if wasd_view {
-                    "screenshot_wasd.png"
+                let out_file = if f2_on {
+                    "screenshot_f2_log_n_on.png"
+                } else if f2_off {
+                    "screenshot_f2_log_n_off.png"
+                } else if f1_gem {
+                    "screenshot_f1_gems.png"
+                } else if f3_smoke {
+                    "screenshot_f3_smoke.png"
+                } else if f4_portal {
+                    "screenshot_f4_portal.png"
+                } else if chrono_view {
+                    "screenshot_chrono.png"
+                } else if marle_view {
+                    "screenshot_marle.png"
+                } else if lucca_view {
+                    "screenshot_lucca.png"
+                } else if robo_view {
+                    "screenshot_robo.png"
+                } else if frog_view {
+                    "screenshot_frog.png"
+                } else if ayla_view {
+                    "screenshot_ayla.png"
+                } else if magus_view {
+                    "screenshot_magus.png"
+                } else if arroyo_on {
+                    "screenshot_arroyo_on.png"
+                } else if arroyo_off {
+                    "screenshot_arroyo_off.png"
                 } else if elevated {
                     "screenshot_elevated.png"
                 } else {
@@ -1016,13 +1175,143 @@ fn run_check_layout(scene: &Scene) {
     println!("  - Ocupación grilla fina (25x25): {:>3}/625 rayos ({:>5.1}%) -> [{}]",
         hits_fine, pct_fine, if toma6_passed { "PASS (>= 60%)" } else { "FAIL (< 60%)" });
 
+    println!("\n--- 5. Verificación de Toma F4 (Portal centrado, meta ancho >= 15% de pantalla = 120 px) ---");
+    let mut cam_f4 = f4_portal_camera();
+    cam_f4.resolve_collision(&scene.cubes);
+    cam_f4.update_basis_vectors();
+    println!("Cámara F4: Eye = ({:.2}, {:.2}, {:.2}), Target = ({:.2}, {:.2}, {:.2})",
+        cam_f4.eye.x, cam_f4.eye.y, cam_f4.eye.z, cam_f4.center.x, cam_f4.center.y, cam_f4.center.z);
+
+    let mut portal_min_x = i32::MAX;
+    let mut portal_max_x = i32::MIN;
+    let mut portal_min_y = i32::MAX;
+    let mut portal_max_y = i32::MIN;
+    let mut portal_hits = 0;
+
+    let portal_bb = scene.billboards.iter().find(|b| b.texture == "assets/gate_vortex.png").expect("Portal billboard no encontrado");
+
+    for y in 0..HEIGHT {
+        let py = (1.0 - 2.0 * (y as f32 + 0.5) / HEIGHT as f32) * tan_half_fov;
+        for x in 0..WIDTH {
+            let px = (2.0 * (x as f32 + 0.5) / WIDTH as f32 - 1.0) * aspect * tan_half_fov;
+            let dir = cam_f4.basis_change(&Vector3::new(px, py, -1.0)).normalized();
+
+            if let Some((t_bb, u, v)) = portal_bb.intersect(cam_f4.eye, dir, cam_f4.forward, cam_f4.right, cam_f4.up, f32::MAX) {
+                let (_, alpha) = scene.textures.sample_uv_rgba(portal_bb.texture, u, v);
+                if alpha >= 0.5 {
+                    let occluded = if let Some((t_cube, cube_idx, _, _)) = scene.grid.intersect_closest(&scene.cubes, cam_f4.eye, dir, None) {
+                        t_cube < t_bb - 0.05 && scene.cubes[cube_idx].material.transparency < 0.1
+                    } else {
+                        false
+                    };
+
+                    if !occluded {
+                        portal_hits += 1;
+                        if x < portal_min_x { portal_min_x = x; }
+                        if x > portal_max_x { portal_max_x = x; }
+                        if y < portal_min_y { portal_min_y = y; }
+                        if y > portal_max_y { portal_max_y = y; }
+                    }
+                }
+            }
+        }
+    }
+
+    let f4_bbox_w = if portal_max_x >= portal_min_x { portal_max_x - portal_min_x + 1 } else { 0 };
+    let f4_bbox_h = if portal_max_y >= portal_min_y { portal_max_y - portal_min_y + 1 } else { 0 };
+    let f4_pct_w = (f4_bbox_w as f32 / WIDTH as f32) * 100.0;
+    let f4_center_x = if f4_bbox_w > 0 { (portal_min_x + portal_max_x) as f32 * 0.5 } else { 0.0 };
+    let f4_center_y = if f4_bbox_h > 0 { (portal_min_y + portal_max_y) as f32 * 0.5 } else { 0.0 };
+    let f4_passed = f4_pct_w >= 15.0;
+
+    println!("  - Portal BBox en F4 (medido con rayos): [X: {}..{}, Y: {}..{}] -> {}x{} px",
+        portal_min_x, portal_max_x, portal_min_y, portal_max_y, f4_bbox_w, f4_bbox_h);
+    println!("  - Centro BBox: ({:.1}, {:.1}) (centro pantalla: 400.0, 300.0)", f4_center_x, f4_center_y);
+    println!("  - Ancho relativo: {:.2}% (meta: >= 15.0%, min 120 px) -> [{}]",
+        f4_pct_w, if f4_passed { "PASS" } else { "FAIL" });
+
+    println!("\n--- 6. Verificación de Tomas 3 a 9 (Personajes individuales: meta >= 95% visible, 55-70% alto) ---");
+    let char_tests = [
+        ("Chrono", "assets/party/Chrono.png", chrono_camera()),
+        ("Marle", "assets/party/Marle.png", marle_camera()),
+        ("Lucca", "assets/party/Lucca.png", lucca_camera()),
+        ("Robo", "assets/party/Robo.png", robo_camera()),
+        ("Frog", "assets/party/Frog.png", frog_camera()),
+        ("Ayla", "assets/party/Ayla.png", ayla_camera()),
+        ("Magus", "assets/party/Magus.png", magus_camera()),
+    ];
+
+    let mut all_chars_passed = true;
+    for (char_name, tex_path, mut cam) in char_tests {
+        cam.resolve_collision(&scene.cubes);
+        cam.update_basis_vectors();
+        let (bb_idx, bb) = scene.billboards.iter().enumerate().find(|(_, b)| b.texture == tex_path).expect("Personaje no encontrado");
+        let sprite_center = bb.position + Vector3::new(0.0, bb.height * 0.5, 0.0);
+
+        // Rayos 5x5 sobre el sprite
+        let mut vis_count = 0;
+        for gy in 0..5 {
+            let v = (gy as f32 + 0.5) / 5.0;
+            for gx in 0..5 {
+                let u = (gx as f32 + 0.5) / 5.0;
+                let sample_pos = sprite_center
+                    + cam.right * ((u - 0.5) * bb.width)
+                    + cam.up * ((0.5 - v) * bb.height);
+                let ray_dir = (sample_pos - cam.eye).normalized();
+                let target_dist = (sample_pos - cam.eye).length();
+
+                let mut occluded = false;
+                if let Some((t_cube, cube_idx, _, _)) = scene.grid.intersect_closest(&scene.cubes, cam.eye, ray_dir, None) {
+                    if t_cube < target_dist - 0.05 && scene.cubes[cube_idx].material.transparency < 0.1 {
+                        occluded = true;
+                    }
+                }
+
+                if !occluded {
+                    for (oidx, obb) in scene.billboards.iter().enumerate() {
+                        if oidx == bb_idx || obb.texture == "assets/gate_vortex.png" {
+                            continue;
+                        }
+                        if let Some((_, bu, bv)) = obb.intersect(cam.eye, ray_dir, cam.forward, cam.right, cam.up, target_dist - 0.05) {
+                            let (_, alpha) = scene.textures.sample_uv_rgba(obb.texture, bu, bv);
+                            if alpha >= 0.5 {
+                                occluded = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if !occluded {
+                    vis_count += 1;
+                }
+            }
+        }
+
+        let vis_pct = (vis_count as f32 / 25.0) * 100.0;
+        let dist = (cam.eye - sprite_center).length();
+        let frame_h_at_dist = 2.0 * dist * tan_half_fov;
+        let height_pct = (bb.height / frame_h_at_dist) * 100.0;
+
+        let char_ok = vis_pct >= 95.0 && height_pct >= 55.0 && height_pct <= 70.0;
+        if !char_ok {
+            all_chars_passed = false;
+        }
+
+        println!("  - {:<7}: Eye = ({:.2}, {:.2}, {:.2}), Target = ({:.2}, {:.2}, {:.2}) | Visibilidad: {:>2}/25 ({:>5.1}%) | Alto: {:>4.1}% -> [{}]",
+            char_name, cam.eye.x, cam.eye.y, cam.eye.z, cam.center.x, cam.center.y, cam.center.z,
+            vis_count, vis_pct, height_pct, if char_ok { "PASS" } else { "FAIL" });
+    }
+
     println!("\n=== RESUMEN GLOBAL ===");
-    println!("1. Visibilidad personajes (>= 85%): {}", if all_vis_passed { "TODO PASS" } else { "FAIL DETECTADO" });
-    println!("2. Solape entre personajes (<= 10%): {}", if all_overlap_passed { "TODO PASS" } else { "FAIL DETECTADO" });
+    println!("1. Visibilidad personajes inicial (>= 85%): {}", if all_vis_passed { "TODO PASS" } else { "FAIL DETECTADO" });
+    println!("2. Solape entre personajes inicial (<= 10%): {}", if all_overlap_passed { "TODO PASS" } else { "FAIL DETECTADO" });
     println!("3. Portal escondido (Toma 1=0%, Órbita 2-5 frames): {}", if portal_passed { "TODO PASS" } else { "FAIL DETECTADO" });
     println!("4. Toma 6 ocupación tronco (>= 60%): {}", if toma6_passed { "TODO PASS" } else { "FAIL DETECTADO" });
+    println!("5. Toma F4 portal ancho (>= 15%): {}", if f4_passed { "TODO PASS" } else { "FAIL DETECTADO" });
+    println!("6. Tomas 3-9 personajes (vis >= 95%, alto 55-70%): {}", if all_chars_passed { "TODO PASS" } else { "FAIL DETECTADO" });
     println!("Resultado: {}",
-        if all_vis_passed && all_overlap_passed && portal_passed && toma6_passed {
+        if all_vis_passed && all_overlap_passed && portal_passed && toma6_passed && f4_passed && all_chars_passed {
             "PASS (Todos los criterios cumplidos)"
         } else {
             "FAIL (Ajuste requerido)"
