@@ -74,6 +74,29 @@ impl Scene {
         }
     }
 
+    /// Carga todos los assets de texturas y sprites en el TextureManager de la escena
+    pub fn load_textures(&mut self, rl: &mut raylib::prelude::RaylibHandle, thread: &raylib::prelude::RaylibThread) {
+        let paths = [
+            "assets/grass.png",
+            "assets/dirt.png",
+            "assets/stone.png",
+            "assets/stone_normal.png",
+            "assets/bark.png",
+            "assets/bark_normal.png",
+            "assets/leaves.png",
+            "assets/fire.png",
+            "assets/gem.png",
+            "assets/water.png",
+            "assets/party/hero.png",
+            "assets/party/mage.png",
+            "assets/party/warrior.png",
+            "assets/party/rogue.png",
+        ];
+        for path in paths {
+            self.textures.load_texture(rl, thread, path);
+        }
+    }
+
     /// Genera un árbol simple: tronco recto + copa de hojas.
     fn tree(base: Vector3, mats: &SceneMaterials) -> Vec<Cube> {
         let mut parts = Vec::new();

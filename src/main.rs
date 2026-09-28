@@ -8,6 +8,7 @@ mod procedural;
 mod scene;
 mod raytrace;
 mod texture;
+mod texture_gen;
 
 use raylib::prelude::*;
 use rayon::prelude::*;
@@ -23,7 +24,12 @@ fn main() {
         .title("Diorama - Campamento Nocturno")
         .build();
 
-    let scene = Scene::campfire_diorama();
+    // 1. Asegurar que todos los assets requeridos existan en disco
+    texture_gen::generate_all_assets();
+
+    // 2. Crear la escena y cargar texturas en CPU
+    let mut scene = Scene::campfire_diorama();
+    scene.load_textures(&mut rl, &thread);
 
     let mut camera = Camera::new(
         Vector3::new(0.0, 8.0, 16.0),
@@ -32,6 +38,7 @@ fn main() {
     );
 
     let mut framebuffer = vec![Color::BLACK; (WIDTH * HEIGHT) as usize];
+    let mut screenshot_saved = false;
 
     while !rl.window_should_close() {
         // --- Input de cámara: rotación con mouse/flechas, zoom con scroll ---
@@ -56,6 +63,17 @@ fn main() {
         // --- Render (paralelizado por filas con rayon) ---
         if camera.is_changed() {
             render(&scene, &camera, &mut framebuffer);
+
+            if !screenshot_saved {
+                let mut img = Image::gen_image_color(WIDTH, HEIGHT, Color::BLACK);
+                for y in 0..HEIGHT {
+                    for x in 0..WIDTH {
+                        img.draw_pixel(x, y, framebuffer[(y * WIDTH + x) as usize]);
+                    }
+                }
+                img.export_image("screenshot.png");
+                screenshot_saved = true;
+            }
         }
 
         let mut d = rl.begin_drawing(&thread);
