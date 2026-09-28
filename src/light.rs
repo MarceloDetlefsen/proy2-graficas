@@ -19,10 +19,10 @@ impl Light {
         }
     }
 
-    /// Luz cálida de la fogata: atenuación suave 1 / (1 + (d/r)^2) con r ~ 4.6,
-    /// color (1.0, 0.60, 0.25). Llega con fuerza a ~3 bloques y alcanza los troncos con 30-35%.
+    /// Luz cálida de la fogata: atenuación suave 1 / (1 + (d/r)^2) con r ~ 4.8,
+    /// color (1.0, 0.62, 0.24). Halo cálido amplio que ilumina el suelo y los troncos con fuerza dorada.
     pub fn campfire(position: Vector3) -> Self {
-        Light::new(position, Vector3::new(1.0, 0.60, 0.25), 1.15, 4.6, true)
+        Light::new(position, Vector3::new(1.0, 0.62, 0.24), 1.30, 4.8, true)
     }
 
     /// Luz de relleno azul tenue de noche (sin sombras) para no encarecer el render

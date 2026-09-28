@@ -16,7 +16,7 @@ impl Billboard {
         Billboard { position, width, height, texture }
     }
 
-    /// Intersección rayo-plano con orientación de cámara fija por frame.
+    /// Intersección rayo-plano con orientación de cámara fija por frame y poda por `max_t`.
     /// normal = -forward, u y v calculados con right y up.
     /// Devuelve (t, u, v) donde u,v son coordenadas de textura en [0,1].
     pub fn intersect(
@@ -26,6 +26,7 @@ impl Billboard {
         forward: Vector3,
         right: Vector3,
         up: Vector3,
+        max_t: f32,
     ) -> Option<(f32, f32, f32)> {
         let normal = -forward;
         let denom = normal.dot(dir);
@@ -36,16 +37,19 @@ impl Billboard {
         // El centro del billboard está a mitad de altura por encima de los pies
         let center = self.position + up * (self.height * 0.5);
         let t = (center - origin).dot(normal) / denom;
-        if t < 0.0 {
+        if t <= 1e-4 || t >= max_t {
             return None;
         }
 
         let hit = origin + dir * t;
         let local = hit - center;
         let u = local.dot(right) / self.width + 0.5;
-        let v = 0.5 - local.dot(up) / self.height;
+        if !(0.0..=1.0).contains(&u) {
+            return None;
+        }
 
-        if (0.0..=1.0).contains(&u) && (0.0..=1.0).contains(&v) {
+        let v = 0.5 - local.dot(up) / self.height;
+        if (0.0..=1.0).contains(&v) {
             Some((t, u, v))
         } else {
             None
@@ -56,6 +60,7 @@ impl Billboard {
 /// Personaje o sprite acostado horizontalmente sobre el suelo (y = suelo + 0.03).
 /// La intersección es rayo-plano horizontal con coordenadas locales rotadas por `angle_y`.
 /// Cabeza hacia el fuego (+head_dir), pies hacia afuera (-head_dir).
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub struct GroundSprite {
     pub position: Vector3, // Centro del cuadrilátero sobre el suelo
@@ -65,6 +70,7 @@ pub struct GroundSprite {
     pub texture: &'static str,
 }
 
+#[allow(dead_code)]
 impl GroundSprite {
     pub fn new(position: Vector3, width: f32, length: f32, angle_y: f32, texture: &'static str) -> Self {
         GroundSprite {

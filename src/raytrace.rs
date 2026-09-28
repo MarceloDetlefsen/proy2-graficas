@@ -64,16 +64,14 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
 
     // 2. Intersección con billboards (sprites planos orientados a cámara)
     for bb in &scene.billboards {
-        if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up) {
-            if t < closest_t && t > 1e-4 {
-                let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
-                // Si el texel tiene alpha < 0.5, el rayo pasa de largo
-                if alpha >= 0.5 {
-                    closest_t = t;
-                    hit_billboard = Some((bb, color, u, v));
-                    hit_ground_sprite = None;
-                    hit_cube = None;
-                }
+        if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
+            let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+            // Si el texel tiene alpha < 0.5, el rayo pasa de largo
+            if alpha >= 0.5 {
+                closest_t = t;
+                hit_billboard = Some((bb, color, u, v));
+                hit_ground_sprite = None;
+                hit_cube = None;
             }
         }
     }
@@ -96,8 +94,9 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     // Sombreado de ground_sprite (personajes acostados en el suelo)
     if let Some((_gs, sprite_color, _u, _v)) = hit_ground_sprite {
         let hit_point = origin + dir * closest_t;
-        let ambient_color = Vector3::new(0.12, 0.17, 0.36);
-        let ambient = mul_vec3(sprite_color, ambient_color);
+        // Luz ambiental azul noche con piso legible para que los personajes no salgan casi negros
+        let ambient_color = Vector3::new(0.20, 0.25, 0.44);
+        let ambient = mul_vec3(sprite_color, ambient_color) + sprite_color * 0.10;
         let mut diffuse = Vector3::zero();
 
         for light in &scene.lights {
@@ -254,6 +253,10 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                 }
                 let light_dir = light_vec / light_dist;
 
+                if normal.dot(light_dir) <= 0.0 {
+                    continue;
+                }
+
                 let n_dot_l = shading_normal.dot(light_dir);
                 if n_dot_l <= 0.0 {
                     continue;
@@ -289,6 +292,9 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             // Sombra blanda circular (blob) de ~0.5 bloques de radio bajo los pies de cada personaje
             let mut blob_shadow = 1.0f32;
             for bb in &scene.billboards {
+                if !bb.texture.contains("party") {
+                    continue;
+                }
                 let dx = hit_point.x - bb.position.x;
                 let dz = hit_point.z - bb.position.z;
                 let dy = hit_point.y - bb.position.y;
