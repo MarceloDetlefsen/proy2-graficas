@@ -114,7 +114,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
 
                 // 3 & 4. Combinar difuso (Lambert, N·L) + especular (Blinn-Phong) con atenuación lineal
                 if !in_shadow {
-                    let attenuation = (light.intensity / (1.0 + 0.15 * light_dist)).max(0.0);
+                    let attenuation = (light.intensity / (1.0 + 0.22 * light_dist)).max(0.0);
 
                     let diffuse = mul_vec3(base_color, light.color) * (n_dot_l * attenuation);
 
@@ -122,8 +122,10 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                     if cube.material.specular > 0.0 {
                         let half_dir = (light_dir + view_dir).normalized();
                         let n_dot_h = normal.dot(half_dir).max(0.0);
-                        let spec_factor = n_dot_h.powf(cube.material.specular);
-                        specular = light.color * (spec_factor * attenuation);
+                        let shininess = cube.material.specular.max(1.0);
+                        let spec_factor = n_dot_h.powf(shininess);
+                        let spec_strength = (cube.material.specular / 60.0).clamp(0.04, 0.6);
+                        specular = light.color * (spec_factor * attenuation * spec_strength);
                     }
 
                     diffuse_specular += diffuse + specular;

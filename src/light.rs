@@ -15,6 +15,6 @@ impl Light {
     /// La fogata es al mismo tiempo geometría emisiva (se ve brillante directo
     /// a cámara) y fuente de luz real (ilumina el resto de la escena de noche).
     pub fn campfire(position: Vector3) -> Self {
-        Light::new(position, Vector3::new(1.0, 0.6, 0.25), 18.0)
+        Light::new(position, Vector3::new(1.0, 0.65, 0.3), 8.0)
     }
 }
