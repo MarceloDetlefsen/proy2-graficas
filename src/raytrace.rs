@@ -47,7 +47,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     let mut hit_cube = None;
 
     for cube in &scene.cubes {
-        if let Some(t) = cube.intersect(origin, dir) {
+        if let Some((t, _, _)) = cube.intersect(origin, dir) {
             if t < closest_t {
                 closest_t = t;
                 hit_cube = Some(cube);

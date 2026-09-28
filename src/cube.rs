@@ -24,9 +24,15 @@ impl Cube {
         (self.min + self.max) * 0.5
     }
 
-    /// Intersección rayo-AABB (slab method). Devuelve la distancia t
-    /// del punto de impacto más cercano, si existe.
-    pub fn intersect(&self, origin: Vector3, dir: Vector3) -> Option<f32> {
+    /// Intersección rayo-AABB (slab method). Devuelve (t, u, v) donde t es
+    /// la distancia del impacto más cercano y u, v son las coordenadas de textura
+    /// en la cara golpeada en el rango [0, 1].
+    pub fn intersect(&self, origin: Vector3, dir: Vector3) -> Option<(f32, f32, f32)> {
+        self.intersect_with_uv(origin, dir)
+    }
+
+    /// Intersección con cálculo de UV según la cara golpeada.
+    pub fn intersect_with_uv(&self, origin: Vector3, dir: Vector3) -> Option<(f32, f32, f32)> {
         let inv_dir = Vector3::new(1.0 / dir.x, 1.0 / dir.y, 1.0 / dir.z);
 
         let mut t_min = (self.min.x - origin.x) * inv_dir.x;
@@ -63,33 +69,72 @@ impl Cube {
         if tz_min > t_min {
             t_min = tz_min;
         }
-        // t_max no se usa después de este punto, pero se deja el cálculo
-        // por si luego se necesita para transparencia (entrar y salir del cubo).
+
         let _ = tz_max;
 
         if t_min < 0.0 {
             None
         } else {
-            Some(t_min)
+            let hit_point = origin + dir * t_min;
+            let (u, v) = self.uv_at(hit_point);
+            Some((t_min, u, v))
         }
+    }
+
+    /// Coordenadas UV [0, 1] en la cara golpeada del cubo. Cada cara del cubo
+    /// mapea su textura completa (no repetida) sobre dicha cara.
+    pub fn uv_at(&self, hit_point: Vector3) -> (f32, f32) {
+        let sx = (self.max.x - self.min.x).max(1e-6);
+        let sy = (self.max.y - self.min.y).max(1e-6);
+        let sz = (self.max.z - self.min.z).max(1e-6);
+
+        let d_min_x = (hit_point.x - self.min.x).abs();
+        let d_max_x = (hit_point.x - self.max.x).abs();
+        let d_min_y = (hit_point.y - self.min.y).abs();
+        let d_max_y = (hit_point.y - self.max.y).abs();
+        let d_min_z = (hit_point.z - self.min.z).abs();
+        let d_max_z = (hit_point.z - self.max.z).abs();
+
+        let mut min_d = d_min_x;
+        let mut face = 0; // 0: -X, 1: +X, 2: -Y, 3: +Y, 4: -Z, 5: +Z
+
+        if d_max_x < min_d { min_d = d_max_x; face = 1; }
+        if d_min_y < min_d { min_d = d_min_y; face = 2; }
+        if d_max_y < min_d { min_d = d_max_y; face = 3; }
+        if d_min_z < min_d { min_d = d_min_z; face = 4; }
+        if d_max_z < min_d { face = 5; }
+
+        let (u, v) = match face {
+            0 => ((hit_point.z - self.min.z) / sz, (self.max.y - hit_point.y) / sy), // -X (izquierda)
+            1 => ((self.max.z - hit_point.z) / sz, (self.max.y - hit_point.y) / sy), // +X (derecha)
+            2 => ((hit_point.x - self.min.x) / sx, (self.max.z - hit_point.z) / sz), // -Y (abajo)
+            3 => ((hit_point.x - self.min.x) / sx, (hit_point.z - self.min.z) / sz), // +Y (arriba)
+            4 => ((self.max.x - hit_point.x) / sx, (self.max.y - hit_point.y) / sy), // -Z (atrás)
+            _ => ((hit_point.x - self.min.x) / sx, (self.max.y - hit_point.y) / sy), // +Z (frente)
+        };
+
+        (u.clamp(0.0, 1.0), v.clamp(0.0, 1.0))
     }
 
     /// Normal de la cara golpeada en el punto `hit_point`.
     /// Necesaria para reflexión, refracción y mapas normales.
     pub fn normal_at(&self, hit_point: Vector3) -> Vector3 {
-        const EPS: f32 = 1e-4;
-        if (hit_point.x - self.min.x).abs() < EPS {
-            Vector3::new(-1.0, 0.0, 0.0)
-        } else if (hit_point.x - self.max.x).abs() < EPS {
-            Vector3::new(1.0, 0.0, 0.0)
-        } else if (hit_point.y - self.min.y).abs() < EPS {
-            Vector3::new(0.0, -1.0, 0.0)
-        } else if (hit_point.y - self.max.y).abs() < EPS {
-            Vector3::new(0.0, 1.0, 0.0)
-        } else if (hit_point.z - self.min.z).abs() < EPS {
-            Vector3::new(0.0, 0.0, -1.0)
-        } else {
-            Vector3::new(0.0, 0.0, 1.0)
-        }
+        let d_min_x = (hit_point.x - self.min.x).abs();
+        let d_max_x = (hit_point.x - self.max.x).abs();
+        let d_min_y = (hit_point.y - self.min.y).abs();
+        let d_max_y = (hit_point.y - self.max.y).abs();
+        let d_min_z = (hit_point.z - self.min.z).abs();
+        let d_max_z = (hit_point.z - self.max.z).abs();
+
+        let mut min_d = d_min_x;
+        let mut normal = Vector3::new(-1.0, 0.0, 0.0);
+
+        if d_max_x < min_d { min_d = d_max_x; normal = Vector3::new(1.0, 0.0, 0.0); }
+        if d_min_y < min_d { min_d = d_min_y; normal = Vector3::new(0.0, -1.0, 0.0); }
+        if d_max_y < min_d { min_d = d_max_y; normal = Vector3::new(0.0, 1.0, 0.0); }
+        if d_min_z < min_d { min_d = d_min_z; normal = Vector3::new(0.0, 0.0, -1.0); }
+        if d_max_z < min_d { normal = Vector3::new(0.0, 0.0, 1.0); }
+
+        normal
     }
 }
