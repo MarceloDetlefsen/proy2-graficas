@@ -116,7 +116,7 @@ impl SceneMaterials {
 
             campfire: Material::new(Vector3::new(1.0, 0.55, 0.1), 10.0)
                 .with_texture("assets/fire.png")
-                .with_emission(Vector3::new(4.0, 2.2, 0.8)),
+                .with_emission(Vector3::new(1.0, 0.5, 0.1)),
 
             gem: Material::new(Vector3::new(0.6, 0.9, 1.0), 60.0)
                 .with_texture("assets/gem.png")

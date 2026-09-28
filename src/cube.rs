@@ -20,6 +20,14 @@ impl Cube {
         }
     }
 
+    pub fn new_box(position: Vector3, size: Vector3, material: Material) -> Self {
+        Cube {
+            min: position,
+            max: position + size,
+            material,
+        }
+    }
+
     pub fn center(&self) -> Vector3 {
         (self.min + self.max) * 0.5
     }

@@ -46,13 +46,17 @@ impl Scene {
         }
         cubes.push(Cube::new(Vector3::new(-0.25, ground_y, -0.25), 0.5, mats.campfire));
 
-        // --- Cristales/gemas tirados cerca de la fogata (refracción + reflexión) ---
-        for &(x, z) in &[(-2.0, 0.5), (2.2, -0.8), (1.5, 1.8)] {
-            cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.3, mats.gem));
+        // --- Cristales/gemas tirados cerca de la fogata y el charco (refracción + reflexión) ---
+        for &(x, z) in &[(-2.0, 0.5), (2.2, -0.8), (0.7, 1.7)] {
+            cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.5, mats.gem));
         }
 
-        // --- Charco de agua (reflexión) ---
-        cubes.push(Cube::new(Vector3::new(4.0, ground_y - 0.05, 3.0), 2.0, mats.water));
+        // --- Charco de agua a ras de suelo en depresión (reflexión) ---
+        cubes.push(Cube::new_box(
+            Vector3::new(3.0, 2.01, 3.0),
+            Vector3::new(2.8, 0.09, 2.8),
+            mats.water,
+        ));
 
         // --- Luces ---
         let lights = vec![Light::campfire(Vector3::new(0.0, ground_y + 0.8, 0.0))];
