@@ -1,0 +1,403 @@
+use raylib::prelude::*;
+use std::fs;
+use std::path::Path;
+
+/// Hash 2D determinístico para ruido de textura sin librerías externas
+fn hash2d(x: i32, y: i32, seed: u32) -> f32 {
+    let n = (x.wrapping_mul(374761393) ^ y.wrapping_mul(668265263) ^ (seed as i32).wrapping_mul(1274126177)) as u32;
+    let n = (n ^ (n >> 13)).wrapping_mul(1274126177);
+    (n & 0x007fffff) as f32 / 8388607.0
+}
+
+/// Genera todos los assets necesarios para el diorama si no existen en disco
+pub fn generate_all_assets() {
+    fs::create_dir_all("assets/party").expect("Failed to create assets directory");
+
+    generate_if_missing("assets/grass.png", gen_grass_texture);
+    generate_if_missing("assets/dirt.png", gen_dirt_texture);
+    generate_if_missing("assets/stone.png", gen_stone_texture);
+    generate_if_missing("assets/stone_normal.png", gen_stone_normal);
+    generate_if_missing("assets/bark.png", gen_bark_texture);
+    generate_if_missing("assets/bark_normal.png", gen_bark_normal);
+    generate_if_missing("assets/leaves.png", gen_leaves_texture);
+    generate_if_missing("assets/fire.png", gen_fire_texture);
+    generate_if_missing("assets/gem.png", gen_gem_texture);
+    generate_if_missing("assets/water.png", gen_water_texture);
+
+    generate_if_missing("assets/party/hero.png", gen_hero_sprite);
+    generate_if_missing("assets/party/mage.png", gen_mage_sprite);
+    generate_if_missing("assets/party/warrior.png", gen_warrior_sprite);
+    generate_if_missing("assets/party/rogue.png", gen_rogue_sprite);
+}
+
+fn generate_if_missing<F: FnOnce() -> Image>(path: &str, generator: F) {
+    if !Path::new(path).exists() {
+        let img = generator();
+        img.export_image(path);
+    }
+}
+
+// --- Texturas de Materiales (32x32 px) ---
+
+fn gen_grass_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(65, 135, 40, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let h = hash2d(x, y, 101);
+            let c = if (x % 4 == 1 && y % 5 < 3) || h > 0.82 {
+                Color::new(88, 175, 55, 255) // Brizna clara
+            } else if h < 0.22 {
+                Color::new(48, 102, 28, 255) // Sombra de brizna
+            } else if h < 0.05 {
+                Color::new(60, 46, 25, 255)  // Mota de tierra
+            } else {
+                Color::new(65, 135, 40, 255) // Base verde
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_dirt_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(100, 65, 38, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let h = hash2d(x, y, 202);
+            let c = if h > 0.85 {
+                Color::new(135, 95, 60, 255) // Grava / piedra clara
+            } else if h > 0.70 {
+                Color::new(118, 80, 48, 255)
+            } else if h < 0.20 {
+                Color::new(72, 45, 24, 255)  // Tierra profunda oscura
+            } else {
+                Color::new(100, 65, 38, 255)
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_stone_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(115, 115, 120, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let row = y / 8;
+            let offset = if row % 2 == 1 { 8 } else { 0 };
+            let col = (x + offset) % 16;
+            let edge = col == 0 || col == 15 || y % 8 == 0 || y % 8 == 7;
+            let h = hash2d(x, y, 303);
+
+            let c = if edge {
+                Color::new(60, 60, 65, 255) // Grieta / mortero oscuro
+            } else if h > 0.75 {
+                Color::new(145, 145, 150, 255) // Relieve claro
+            } else if h < 0.25 {
+                Color::new(95, 95, 100, 255)   // Sombra de piedra
+            } else {
+                Color::new(120, 120, 125, 255)
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_stone_normal() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(128, 128, 255, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let row = y / 8;
+            let offset = if row % 2 == 1 { 8 } else { 0 };
+            let col = (x + offset) % 16;
+            let y_rel = y % 8;
+
+            let c = if col == 1 {
+                Color::new(180, 128, 220, 255) // Pendiente +X
+            } else if col == 14 {
+                Color::new(76, 128, 220, 255)  // Pendiente -X
+            } else if y_rel == 1 {
+                Color::new(128, 180, 220, 255) // Pendiente +Y
+            } else if y_rel == 6 {
+                Color::new(128, 76, 220, 255)  // Pendiente -Y
+            } else {
+                Color::new(128, 128, 255, 255) // Plano central
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_bark_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(82, 50, 26, 255));
+    for y in 0..32 {
+        let wave = ((y as f32 * 0.35).sin() * 2.0) as i32;
+        for x in 0..32 {
+            let rx = (x + wave + 32) % 8;
+            let h = hash2d(x, y, 404);
+            let c = if rx == 0 || rx == 7 {
+                Color::new(50, 28, 14, 255)  // Hendidura oscura
+            } else if rx == 3 || rx == 4 {
+                Color::new(108, 68, 36, 255) // Cresta de corteza clara
+            } else if h > 0.7 {
+                Color::new(92, 58, 30, 255)
+            } else {
+                Color::new(76, 46, 24, 255)
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_bark_normal() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(128, 128, 255, 255));
+    for y in 0..32 {
+        let wave = ((y as f32 * 0.35).sin() * 2.0) as i32;
+        for x in 0..32 {
+            let rx = (x + wave + 32) % 8;
+            let c = if rx == 1 || rx == 2 {
+                Color::new(175, 128, 230, 255) // Pendiente positiva
+            } else if rx == 5 || rx == 6 {
+                Color::new(80, 128, 230, 255)  // Pendiente negativa
+            } else {
+                Color::new(128, 128, 255, 255)
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_leaves_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(30, 80, 24, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let h = hash2d(x, y, 505);
+            let c = if h > 0.80 {
+                Color::new(85, 175, 60, 255) // Hoja iluminada
+            } else if h > 0.50 {
+                Color::new(55, 130, 40, 255) // Verde medio
+            } else if h < 0.20 {
+                Color::new(18, 48, 14, 255)  // Hueco de sombra profunda
+            } else {
+                Color::new(32, 85, 25, 255)
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_fire_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(255, 100, 20, 255));
+    for y in 0..32 {
+        let norm_y = y as f32 / 31.0; // 0 arriba, 1 abajo
+        for x in 0..32 {
+            let dist_center = ((x as f32 - 15.5) / 15.5).abs();
+            let h = hash2d(x, y, 606) * 0.25;
+            let intensity = norm_y - dist_center * 0.4 + h;
+
+            let c = if intensity > 0.80 {
+                Color::new(255, 250, 190, 255) // Núcleo incandescente blanco/amarillo
+            } else if intensity > 0.55 {
+                Color::new(255, 190, 30, 255)  // Amarillo fuego
+            } else if intensity > 0.30 {
+                Color::new(235, 95, 15, 255)   // Naranja brillante
+            } else {
+                Color::new(165, 30, 10, 255)   // Ascua roja oscura
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn gen_gem_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(80, 180, 230, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let f1 = (x + y) / 8;
+            let f2 = (x - y + 32) / 8;
+            let is_edge = (x + y) % 8 == 0 || (x - y + 32) % 8 == 0;
+
+            let c = if is_edge {
+                Color::new(195, 245, 255, 255) // Faceta / arista reflectante
+            } else if (f1 + f2) % 2 == 0 {
+                Color::new(130, 215, 250, 255) // Cara brillante
+            } else {
+                Color::new(55, 145, 210, 255)  // Cara profunda
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    // Destello blanco en esquina superior
+    img.draw_pixel(6, 6, Color::WHITE);
+    img.draw_pixel(7, 6, Color::WHITE);
+    img.draw_pixel(6, 7, Color::WHITE);
+    img
+}
+
+fn gen_water_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(35, 80, 145, 220));
+    for y in 0..32 {
+        let wave = ((x_wave(y) * 2.0) as i32 + 32) % 8;
+        for x in 0..32 {
+            let c = if wave == 0 {
+                Color::new(160, 215, 255, 255) // Espuma / reflejo de onda
+            } else if wave <= 2 {
+                Color::new(75, 145, 220, 240)  // Onda suave
+            } else {
+                Color::new(28, 65, 125, 210)   // Fondo translúcido
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+fn x_wave(y: i32) -> f32 {
+    (y as f32 * 0.4).sin()
+}
+
+// --- Sprites de Personajes (32x32 px, fondo transparente alpha=0) ---
+
+fn gen_hero_sprite() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
+    let skin = Color::new(245, 195, 160, 255);
+    let red_hair = Color::new(215, 40, 30, 255);
+    let blue_tunic = Color::new(35, 80, 175, 255);
+    let white_pants = Color::new(225, 225, 235, 255);
+    let boots = Color::new(95, 55, 25, 255);
+    let sword = Color::new(180, 185, 195, 255);
+
+    // Cabello puntiagudo (Crono)
+    fill_rect(&mut img, 12, 4, 8, 6, red_hair);
+    img.draw_pixel(11, 5, red_hair);
+    img.draw_pixel(20, 5, red_hair);
+    img.draw_pixel(10, 3, red_hair);
+    img.draw_pixel(15, 2, red_hair);
+    img.draw_pixel(21, 3, red_hair);
+
+    // Rostro
+    fill_rect(&mut img, 13, 10, 6, 5, skin);
+    img.draw_pixel(14, 12, Color::BLACK); // Ojo izq
+    img.draw_pixel(17, 12, Color::BLACK); // Ojo der
+
+    // Túnica azul
+    fill_rect(&mut img, 11, 15, 10, 8, blue_tunic);
+    fill_rect(&mut img, 11, 20, 10, 2, Color::new(210, 170, 40, 255)); // Cinturón amarillo
+
+    // Pantalones
+    fill_rect(&mut img, 12, 23, 3, 5, white_pants);
+    fill_rect(&mut img, 17, 23, 3, 5, white_pants);
+
+    // Botas
+    fill_rect(&mut img, 11, 28, 4, 3, boots);
+    fill_rect(&mut img, 17, 28, 4, 3, boots);
+
+    // Espada a la espalda
+    fill_rect(&mut img, 21, 7, 2, 12, sword);
+    img
+}
+
+fn gen_mage_sprite() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
+    let helmet = Color::new(110, 70, 40, 255);
+    let goggles = Color::new(40, 200, 180, 255);
+    let skin = Color::new(245, 195, 160, 255);
+    let orange_cape = Color::new(220, 115, 30, 255);
+    let green_shirt = Color::new(50, 135, 60, 255);
+    let boots = Color::new(80, 48, 24, 255);
+
+    // Casco y visor (Lucca)
+    fill_rect(&mut img, 11, 5, 10, 7, helmet);
+    fill_rect(&mut img, 12, 9, 8, 3, Color::new(200, 160, 40, 255)); // Montura gafas
+    fill_rect(&mut img, 13, 10, 2, 2, goggles);
+    fill_rect(&mut img, 17, 10, 2, 2, goggles);
+
+    // Rostro
+    fill_rect(&mut img, 13, 12, 6, 4, skin);
+
+    // Capa y camisa
+    fill_rect(&mut img, 10, 16, 12, 8, orange_cape);
+    fill_rect(&mut img, 14, 16, 4, 5, green_shirt);
+
+    // Piernas y botas
+    fill_rect(&mut img, 12, 24, 3, 4, Color::new(60, 60, 70, 255));
+    fill_rect(&mut img, 17, 24, 3, 4, Color::new(60, 60, 70, 255));
+    fill_rect(&mut img, 11, 28, 4, 3, boots);
+    fill_rect(&mut img, 17, 28, 4, 3, boots);
+    img
+}
+
+fn gen_warrior_sprite() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
+    let armor = Color::new(180, 185, 195, 255);
+    let cape = Color::new(45, 125, 55, 255);
+    let gold = Color::new(230, 190, 40, 255);
+    let dark_metal = Color::new(100, 105, 115, 255);
+
+    // Casco de caballero
+    fill_rect(&mut img, 12, 5, 8, 8, armor);
+    fill_rect(&mut img, 13, 9, 6, 2, Color::new(25, 25, 30, 255)); // Ranura visor
+    img.draw_pixel(15, 4, gold);
+    img.draw_pixel(16, 4, gold);
+
+    // Capa verde a los costados
+    fill_rect(&mut img, 8, 13, 4, 14, cape);
+    fill_rect(&mut img, 20, 13, 4, 14, cape);
+
+    // Peto de armadura
+    fill_rect(&mut img, 11, 13, 10, 9, armor);
+    fill_rect(&mut img, 14, 16, 4, 4, gold); // Emblema dorado
+
+    // Grebas / piernas
+    fill_rect(&mut img, 12, 22, 3, 6, dark_metal);
+    fill_rect(&mut img, 17, 22, 3, 6, dark_metal);
+    fill_rect(&mut img, 11, 28, 4, 3, armor);
+    fill_rect(&mut img, 17, 28, 4, 3, armor);
+    img
+}
+
+fn gen_rogue_sprite() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
+    let blonde = Color::new(245, 210, 60, 255);
+    let skin = Color::new(245, 195, 160, 255);
+    let white_tunic = Color::new(240, 240, 250, 255);
+    let cyan_trim = Color::new(45, 185, 215, 255);
+    let boots = Color::new(85, 52, 26, 255);
+
+    // Cabello rubio y cola de caballo (Marle)
+    fill_rect(&mut img, 12, 4, 8, 7, blonde);
+    fill_rect(&mut img, 20, 6, 3, 8, blonde); // Coleta lateral
+
+    // Rostro
+    fill_rect(&mut img, 13, 10, 6, 5, skin);
+    img.draw_pixel(14, 12, Color::BLACK);
+    img.draw_pixel(17, 12, Color::BLACK);
+
+    // Túnica blanca con ribete celeste
+    fill_rect(&mut img, 11, 15, 10, 8, white_tunic);
+    fill_rect(&mut img, 13, 15, 6, 2, cyan_trim);
+    fill_rect(&mut img, 11, 21, 10, 2, Color::new(180, 130, 60, 255)); // Faja marrón
+
+    // Piernas y botas
+    fill_rect(&mut img, 12, 23, 3, 5, skin);
+    fill_rect(&mut img, 17, 23, 3, 5, skin);
+    fill_rect(&mut img, 11, 28, 4, 3, boots);
+    fill_rect(&mut img, 17, 28, 4, 3, boots);
+    img
+}
+
+fn fill_rect(img: &mut Image, x_start: i32, y_start: i32, w: i32, h: i32, color: Color) {
+    for y in y_start..(y_start + h) {
+        for x in x_start..(x_start + w) {
+            if x >= 0 && x < img.width && y >= 0 && y < img.height {
+                img.draw_pixel(x, y, color);
+            }
+        }
+    }
+}
