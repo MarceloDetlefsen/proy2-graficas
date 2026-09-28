@@ -104,8 +104,32 @@ fn gen_stone_texture() -> Image {
     img
 }
 
-fn gen_stone_normal() -> Image {
+fn normal_from_heightmap(heights: &[[f32; 32]; 32], strength: f32) -> Image {
     let mut img = Image::gen_image_color(32, 32, Color::new(128, 128, 255, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let x_prev = (x + 31) % 32;
+            let x_next = (x + 1) % 32;
+            let y_prev = (y + 31) % 32;
+            let y_next = (y + 1) % 32;
+
+            let dh_dx = (heights[y as usize][x_next as usize] - heights[y as usize][x_prev as usize]) * 0.5 * strength;
+            let dh_dy = (heights[y_next as usize][x as usize] - heights[y_prev as usize][x as usize]) * 0.5 * strength;
+
+            // En espacio tangente: +X es Tangent (U), +Y es Bitangent (V), +Z es Normal
+            let n = Vector3::new(-dh_dx, -dh_dy, 1.0).normalized();
+            let r = ((n.x * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0) as u8;
+            let g = ((n.y * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0) as u8;
+            let b = ((n.z * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0) as u8;
+
+            img.draw_pixel(x, y, Color::new(r, g, b, 255));
+        }
+    }
+    img
+}
+
+fn gen_stone_normal() -> Image {
+    let mut heights = [[0.0f32; 32]; 32];
     for y in 0..32 {
         for x in 0..32 {
             let row = y / 8;
@@ -113,21 +137,19 @@ fn gen_stone_normal() -> Image {
             let col = (x + offset) % 16;
             let y_rel = y % 8;
 
-            let c = if col == 1 {
-                Color::new(180, 128, 220, 255) // Pendiente +X
-            } else if col == 14 {
-                Color::new(76, 128, 220, 255)  // Pendiente -X
-            } else if y_rel == 1 {
-                Color::new(128, 180, 220, 255) // Pendiente +Y
-            } else if y_rel == 6 {
-                Color::new(128, 76, 220, 255)  // Pendiente -Y
-            } else {
-                Color::new(128, 128, 255, 255) // Plano central
-            };
-            img.draw_pixel(x, y, c);
+            // Borde biselado para juntas / grietas de mortero
+            let dx = (col as f32 - 7.5).abs();
+            let dy = (y_rel as f32 - 3.5).abs();
+            let border_x = (7.5 - dx).max(0.0) / 7.5;
+            let border_y = (3.5 - dy).max(0.0) / 3.5;
+            let brick = border_x.min(border_y).sqrt();
+
+            // Bultos e irregularidades tipo piedra natural
+            let bumps = hash2d(x, y, 303) * 0.35;
+            heights[y as usize][x as usize] = brick * 0.7 + bumps;
         }
     }
-    img
+    normal_from_heightmap(&heights, 2.0)
 }
 
 fn gen_bark_texture() -> Image {
@@ -153,22 +175,18 @@ fn gen_bark_texture() -> Image {
 }
 
 fn gen_bark_normal() -> Image {
-    let mut img = Image::gen_image_color(32, 32, Color::new(128, 128, 255, 255));
+    let mut heights = [[0.0f32; 32]; 32];
     for y in 0..32 {
         let wave = ((y as f32 * 0.35).sin() * 2.0) as i32;
         for x in 0..32 {
-            let rx = (x + wave + 32) % 8;
-            let c = if rx == 1 || rx == 2 {
-                Color::new(175, 128, 230, 255) // Pendiente positiva
-            } else if rx == 5 || rx == 6 {
-                Color::new(80, 128, 230, 255)  // Pendiente negativa
-            } else {
-                Color::new(128, 128, 255, 255)
-            };
-            img.draw_pixel(x, y, c);
+            let rx = (x + wave + 32) % 8; // 0..8
+            let dist_center = (rx as f32 - 3.5).abs();
+            let ridge = 1.0 - (dist_center / 3.5); // 1.0 en el centro de la cresta, 0.0 en el surco
+            let noise = hash2d(x, y, 404) * 0.2;
+            heights[y as usize][x as usize] = ridge * 0.8 + noise;
         }
     }
-    img
+    normal_from_heightmap(&heights, 2.2)
 }
 
 fn gen_leaves_texture() -> Image {
