@@ -25,6 +25,12 @@ impl Camera {
         camera
     }
 
+    pub fn set_view(&mut self, eye: Vector3, center: Vector3) {
+        self.eye = eye;
+        self.center = center;
+        self.update_basis_vectors();
+    }
+
     pub fn update_basis_vectors(&mut self) {
         self.forward = (self.center - self.eye).normalized();
         // Usar siempre world_up fijo (0, 1, 0) para que el horizonte se mantenga recto y sin inclinación
@@ -53,8 +59,74 @@ impl Camera {
 
     pub fn zoom(&mut self, amount: f32) {
         let forward = (self.center - self.eye).normalized();
-        self.eye += forward * amount;
+        let relative_pos = self.eye - self.center;
+        let dist = relative_pos.length();
+        if dist - amount > 1.0 {
+            self.eye += forward * amount;
+            self.update_basis_vectors();
+        }
+    }
+
+    /// Desplaza el punto de mira y la cámara en el plano horizontal (WASD) y vertical (QE)
+    pub fn move_target(&mut self, forward_delta: f32, right_delta: f32, up_delta: f32, cubes: &[crate::cube::Cube]) {
+        // Dirección hacia adelante proyectada en el plano horizontal XZ
+        let mut forward_xz = Vector3::new(self.forward.x, 0.0, self.forward.z);
+        if forward_xz.length() > 1e-4 {
+            forward_xz = forward_xz.normalized();
+        } else {
+            forward_xz = Vector3::new(0.0, 0.0, -1.0);
+        }
+
+        let mut right_xz = Vector3::new(self.right.x, 0.0, self.right.z);
+        if right_xz.length() > 1e-4 {
+            right_xz = right_xz.normalized();
+        } else {
+            right_xz = Vector3::new(1.0, 0.0, 0.0);
+        }
+
+        let delta = forward_xz * forward_delta + right_xz * right_delta + Vector3::new(0.0, up_delta, 0.0);
+
+        let new_center = self.center + delta;
+        // Limitar punto de mira a los bordes del terreno ([-9.0, 9.0] para terreno 20x20)
+        let clamped_center_x = new_center.x.clamp(-9.0, 9.0);
+        let clamped_center_z = new_center.z.clamp(-9.0, 9.0);
+        let clamped_center_y = new_center.y.clamp(0.5, 12.0);
+        let effective_delta = Vector3::new(
+            clamped_center_x - self.center.x,
+            clamped_center_y - self.center.y,
+            clamped_center_z - self.center.z,
+        );
+
+        self.center += effective_delta;
+        self.eye += effective_delta;
+
+        // Evitar que la cámara quede por debajo del suelo o dentro de un cubo
+        self.resolve_collision(cubes);
         self.update_basis_vectors();
+    }
+
+    pub fn resolve_collision(&mut self, cubes: &[crate::cube::Cube]) {
+        // Altura mínima del terreno debajo de eye
+        let min_y = crate::scene::terrain_height_at(cubes, self.eye.x, self.eye.z) + 0.35;
+        if self.eye.y < min_y {
+            self.eye.y = min_y;
+        }
+
+        // Evitar penetración dentro de cubos opacos
+        for c in cubes {
+            if !c.casts_shadow {
+                continue;
+            }
+            let pad = 0.20;
+            if self.eye.x >= c.min.x - pad && self.eye.x <= c.max.x + pad
+                && self.eye.y >= c.min.y - pad && self.eye.y <= c.max.y + pad
+                && self.eye.z >= c.min.z - pad && self.eye.z <= c.max.z + pad
+            {
+                if self.eye.y < c.max.y + pad {
+                    self.eye.y = c.max.y + pad;
+                }
+            }
+        }
     }
 
     pub fn is_changed(&mut self) -> bool {
