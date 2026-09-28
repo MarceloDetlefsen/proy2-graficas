@@ -127,63 +127,31 @@ impl Scene {
             ).without_shadow().with_tile_uv(false));
         }
 
-        // --- Humo: 8 cubos translúcidos subiendo con dispersión y ligera emisión propia ---
-        for i in 0..8 {
-            let t = i as f32 / 7.0;
-            let sy = ground_y + 1.40 + t * 5.2;
-            let ss = 0.45 + t * 1.15; // de 0.45 a 1.60
-
-            // Deriva lateral continua suave hacia +X y +Z
-            let drift_x = t * 0.55;
-            let drift_z = t * 0.45;
-
-            // Desplazamiento determinístico ±0.15-0.25 para romper la columna recta
-            let jitter_x = ((i * 17 + 5) % 9) as f32 / 8.0 * 0.40 - 0.20;
-            let jitter_z = ((i * 23 + 3) % 9) as f32 / 8.0 * 0.40 - 0.20;
-
-            let sx = drift_x + jitter_x;
-            let sz = drift_z + jitter_z;
-
-            let mat = if i <= 2 {
-                mats.smoke_base
-            } else if i <= 5 {
-                mats.smoke
-            } else {
-                mats.smoke_top
-            };
-
-            cubes.push(Cube::new_box(
-                Vector3::new(sx - ss * 0.5, sy, sz - ss * 0.5),
-                Vector3::new(ss, ss * 0.85, ss),
-                mat,
-            ).without_shadow().with_tile_uv(false));
-        }
-
         // --- Troncos horizontales para sentarse (~2x0.5x0.5 con textura bark y mapa normal) ---
-        // Log 1: Detrás de la fogata frente a Robo y Lucca
+        // Log 1: Detrás de la fogata frente a Robo y Lucca (veta horizontal a lo largo de X)
         cubes.push(Cube::new_box(
             Vector3::new(-1.10, ground_y, -1.75),
             Vector3::new(2.20, 0.45, 0.50),
             mats.bark,
-        ));
-        // Log 2: Costado izquierdo junto a Frog
+        ).with_log_axis('X'));
+        // Log 2: Costado izquierdo junto a Frog (veta horizontal a lo largo de Z)
         cubes.push(Cube::new_box(
             Vector3::new(-1.85, ground_y, -0.90),
             Vector3::new(0.50, 0.45, 1.80),
             mats.bark,
-        ));
-        // Log 3: Costado derecho junto a Ayla
+        ).with_log_axis('Z'));
+        // Log 3: Costado derecho junto a Ayla (veta horizontal a lo largo de Z)
         cubes.push(Cube::new_box(
             Vector3::new(1.35, ground_y, -0.90),
             Vector3::new(0.50, 0.45, 1.80),
             mats.bark,
-        ));
-        // Log 4: Junto al árbol de Magus
+        ).with_log_axis('Z'));
+        // Log 4: Junto al árbol de Magus (veta horizontal a lo largo de X)
         cubes.push(Cube::new_box(
             Vector3::new(3.00, ground_y, -2.40),
             Vector3::new(1.80, 0.45, 0.50),
             mats.bark,
-        ));
+        ).with_log_axis('X'));
 
         // --- Puente de tablones donde el camino cruza el arroyo (elevado ~0.08, agua visible a ambos lados) ---
         let bridge_y = terrain_height_at(&cubes, 0.5, 4.0);
@@ -193,10 +161,18 @@ impl Scene {
             mats.planks,
         ));
 
-        // --- Cristales/gemas tirados cerca de la fogata (refracción + reflexión) ---
-        for &(x, z) in &[(-2.0, 0.5), (2.2, -0.8), (0.7, 1.7)] {
-            cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.5, mats.gem));
-        }
+        // --- 2 Gemas (refracción visible, n=1.55) a los lados del fuego ---
+        // Se aprecian desde el encuadre inicial deformando el suelo iluminado y la fogata detrás
+        cubes.push(Cube::new_box(
+            Vector3::new(-0.75, ground_y, 0.55),
+            Vector3::new(0.55, 0.55, 0.55),
+            mats.gem,
+        ));
+        cubes.push(Cube::new_box(
+            Vector3::new(0.75, ground_y, 0.55),
+            Vector3::new(0.55, 0.55, 0.55),
+            mats.gem,
+        ));
 
         // --- Luces (máximo 2: fogata con sombras + luz de relleno azul tenue sin sombras) ---
         let lights = vec![
@@ -204,10 +180,41 @@ impl Scene {
             Light::sky_fill(Vector3::new(0.0, 15.0, 0.0)),
         ];
 
-        // --- Personajes de pie (Billboards: Robo, Lucca, Frog, Ayla, Magus) ---
-        let base_height = 1.8f32;
+        // --- Billboards de la escena: Humo, Personajes y Mechones de pasto ---
         let mut billboards = Vec::new();
 
+        // 1. Humo con 11 billboards: bocanadas procedurales que suben desde la llama
+        let smoke_textures = [
+            "assets/smoke_puff_0.png",
+            "assets/smoke_puff_1.png",
+            "assets/smoke_puff_2.png",
+        ];
+        for i in 0..11 {
+            let t = i as f32 / 10.0;
+            let sy = ground_y + 1.25 + t * 4.8;
+            let size = 0.60 + t * 1.20; // de 0.60 en la llama a 1.80 arriba
+
+            // Deriva senoidal suave + jitter determinístico
+            let drift_x = (t * std::f32::consts::PI * 1.6).sin() * 0.35 + t * 0.30;
+            let drift_z = (t * std::f32::consts::PI * 1.2).cos() * 0.20 + t * 0.25;
+            let jitter_x = ((i * 17 + 5) % 9) as f32 / 8.0 * 0.24 - 0.12;
+            let jitter_z = ((i * 23 + 3) % 9) as f32 / 8.0 * 0.24 - 0.12;
+
+            let sx = drift_x + jitter_x;
+            let sz = drift_z + jitter_z;
+
+            let tex = smoke_textures[i % 3];
+            let warm_emit = Vector3::new(0.20, 0.12, 0.04) * (1.0 - t).powi(2);
+
+            billboards.push(
+                Billboard::new(Vector3::new(sx, sy, sz), size, size, tex)
+                    .with_smoke(true)
+                    .with_emission(warm_emit),
+            );
+        }
+
+        // 2. Personajes de pie (Billboards: Robo, Lucca, Frog, Ayla, Magus, Marle, Chrono)
+        let base_height = 1.8f32;
         let standing_party = [
             ("assets/party/Robo.png", -0.75, -2.20, 1.10),
             ("assets/party/Lucca.png", 0.55, -2.20, 0.90),
@@ -223,7 +230,10 @@ impl Scene {
             let height = base_height * mult;
             let aspect = get_png_aspect_ratio(tex);
             let width = height * aspect;
-            billboards.push(Billboard::new(Vector3::new(x, y, z), width, height, tex));
+            billboards.push(
+                Billboard::new(Vector3::new(x, y, z), width, height, tex)
+                    .with_blob_shadow(true),
+            );
         }
 
         // --- Mechones de pasto en la periferia de la clarería (Billboards con textura grass_tuft) ---
@@ -284,6 +294,9 @@ impl Scene {
             "assets/straw.png",
             "assets/tuft.png",
             "assets/grass_tuft.png",
+            "assets/smoke_puff_0.png",
+            "assets/smoke_puff_1.png",
+            "assets/smoke_puff_2.png",
             "assets/planks.png",
             "assets/party/Chrono.png",
             "assets/party/Marle.png",

@@ -53,7 +53,8 @@ fn main() {
     let log_normal = args.iter().any(|a| a == "--log-normal");
     let log_nonormal = args.iter().any(|a| a == "--log-nonormal");
     let smoke_view = args.iter().any(|a| a == "--smoke");
-    let headless = args.iter().any(|a| a == "--screenshot") || log_normal || log_nonormal || smoke_view;
+    let gem_view = args.iter().any(|a| a == "--gem-closeup" || a == "--gem");
+    let headless = args.iter().any(|a| a == "--screenshot") || log_normal || log_nonormal || smoke_view || gem_view;
     let rotated = args.iter().any(|a| a == "--rotated");
     let elevated = args.iter().any(|a| a == "--elevated");
     let closeup = args.iter().any(|a| a == "--closeup");
@@ -71,9 +72,17 @@ fn main() {
 
     let mut camera = if log_normal || log_nonormal {
         // Primer plano de un tronco de asiento (Log 3 a X=1.35..1.85, Y=3.0..3.45, Z=-0.9..0.9)
+        // Visto de lado con luz rasante del fuego iluminando la corteza directamente
         Camera::new(
-            Vector3::new(0.55, 3.55, 0.00),
-            Vector3::new(1.60, 3.22, 0.00),
+            Vector3::new(0.40, 3.65, -0.40),
+            Vector3::new(1.60, 3.25, -0.20),
+            Vector3::new(0.0, 1.0, 0.0),
+        )
+    } else if gem_view {
+        // Primer plano de una gema mostrando refracción con la fogata y el suelo iluminado detrás
+        Camera::new(
+            Vector3::new(1.55, 3.65, 1.35),
+            Vector3::new(0.50, 3.20, 0.40),
             Vector3::new(0.0, 1.0, 0.0),
         )
     } else if smoke_view {
@@ -226,6 +235,8 @@ fn main() {
                     "screenshot_log_normal.png"
                 } else if log_nonormal {
                     "screenshot_log_nonormal.png"
+                } else if gem_view {
+                    "screenshot_gem.png"
                 } else if smoke_view {
                     "screenshot_smoke.png"
                 } else if closeup {
