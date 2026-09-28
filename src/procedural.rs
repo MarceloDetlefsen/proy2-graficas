@@ -32,16 +32,12 @@ pub fn generate_terrain(
             let y = (((h * 0.5 + 0.5) * max_height as f64).floor() as i32)
                 .clamp(0, max_height);
 
-            let material = if y >= max_height - 1 {
-                palette.snow
-            } else if y >= (max_height as f32 * 0.65) as i32 {
+            let material = if y >= max_height {
                 palette.stone
-            } else if y >= (max_height as f32 * 0.35) as i32 {
-                palette.grass
             } else if y >= 1 {
-                palette.dirt
+                palette.grass
             } else {
-                palette.sand
+                palette.dirt
             };
 
             cubes.push(Cube::new(

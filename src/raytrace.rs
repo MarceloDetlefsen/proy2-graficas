@@ -81,8 +81,8 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             };
 
             let view_dir = -dir;
-            // 2. Luz ambiental mínima (0.08 del albedo base) para que nunca quede 100% negra
-            let ambient = base_color * 0.08;
+            // 2. Luz ambiental mínima (0.12 del albedo base) para que nunca quede 100% negra
+            let ambient = base_color * 0.12;
             let mut diffuse_specular = Vector3::zero();
 
             // 3. Shadow rays hacia cada luz de scene.lights

@@ -124,6 +124,7 @@ impl SceneMaterials {
                 .with_refraction(0.85, 1.55),
 
             water: Material::new(Vector3::new(0.15, 0.25, 0.35), 40.0)
+                .with_texture("assets/water.png")
                 .with_reflectivity(0.5)
                 .with_refraction(0.3, 1.33),
         }
