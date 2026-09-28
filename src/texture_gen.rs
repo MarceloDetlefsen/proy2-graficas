@@ -28,6 +28,191 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/party/mage.png", gen_mage_sprite);
     generate_if_missing("assets/party/warrior.png", gen_warrior_sprite);
     generate_if_missing("assets/party/rogue.png", gen_rogue_sprite);
+
+    process_party_sprites();
+}
+
+fn process_party_sprites() {
+    let party_names = ["Chrono", "Marle", "Lucca", "Frog", "Robo", "Ayla", "Magus"];
+    for name in party_names {
+        let png_path = format!("assets/party/{}.png", name);
+        let jpg_path = format!("assets/party/{}.jpg", name);
+        if !Path::new(&png_path).exists() && Path::new(&jpg_path).exists() {
+            println!("Preprocesando sprite de party: {}", name);
+            process_party_sprite(name, &jpg_path, &png_path);
+        }
+    }
+}
+
+fn process_party_sprite(name: &str, jpg_path: &str, png_path: &str) {
+    let Ok(img) = Image::load_image(jpg_path) else {
+        eprintln!("Error al cargar {}", jpg_path);
+        return;
+    };
+    let w = img.width;
+    let h = img.height;
+    let src_colors = img.get_image_data();
+
+    // a) Fondo -> alpha: distancia a blanco < 40 por canal (r >= 215, g >= 215, b >= 215)
+    let is_white_like = |c: &Color| -> bool {
+        c.r >= 215 && c.g >= 215 && c.b >= 215
+    };
+
+    let mut visited = vec![false; (w * h) as usize];
+    let mut queue = std::collections::VecDeque::new();
+
+    // Bordes superior e inferior
+    for x in 0..w {
+        let top = x as usize;
+        if is_white_like(&src_colors[top]) {
+            visited[top] = true;
+            queue.push_back((x, 0));
+        }
+        let bot = ((h - 1) * w + x) as usize;
+        if is_white_like(&src_colors[bot]) && !visited[bot] {
+            visited[bot] = true;
+            queue.push_back((x, h - 1));
+        }
+    }
+    // Bordes izquierdo y derecho
+    for y in 0..h {
+        let left = (y * w) as usize;
+        if is_white_like(&src_colors[left]) && !visited[left] {
+            visited[left] = true;
+            queue.push_back((0, y));
+        }
+        let right = (y * w + (w - 1)) as usize;
+        if is_white_like(&src_colors[right]) && !visited[right] {
+            visited[right] = true;
+            queue.push_back((w - 1, y));
+        }
+    }
+
+    // Flood fill BFS
+    while let Some((cx, cy)) = queue.pop_front() {
+        let neighbors = [(cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)];
+        for (nx, ny) in neighbors {
+            if nx >= 0 && nx < w && ny >= 0 && ny < h {
+                let idx = (ny * w + nx) as usize;
+                if !visited[idx] && is_white_like(&src_colors[idx]) {
+                    visited[idx] = true;
+                    queue.push_back((nx, ny));
+                }
+            }
+        }
+    }
+
+    // Máscara opaca inicial: todo lo no visitado
+    let mut opaque = vec![false; (w * h) as usize];
+    for i in 0..(w * h) as usize {
+        opaque[i] = !visited[i];
+    }
+
+    // b) Hojas de dos sprites: aislar la versión chica izquierda
+    let is_two_sprites = matches!(name, "Ayla" | "Lucca" | "Magus" | "Marle" | "Robo");
+    if is_two_sprites {
+        let mut col_counts = vec![0; w as usize];
+        for x in 0..w {
+            for y in 0..h {
+                if opaque[(y * w + x) as usize] {
+                    col_counts[x as usize] += 1;
+                }
+            }
+        }
+        let mut first_col = 0;
+        while first_col < w as usize && col_counts[first_col] == 0 {
+            first_col += 1;
+        }
+        let mut split_col = first_col;
+        while split_col < w as usize && col_counts[split_col] > 0 {
+            split_col += 1;
+        }
+        for x in split_col as i32..w {
+            for y in 0..h {
+                opaque[(y * w + x) as usize] = false;
+            }
+        }
+    }
+
+    // c) Recortar al bounding box de píxeles opacos
+    let mut min_x = w;
+    let mut max_x = -1;
+    let mut min_y = h;
+    let mut max_y = -1;
+
+    for y in 0..h {
+        for x in 0..w {
+            if opaque[(y * w + x) as usize] {
+                if x < min_x { min_x = x; }
+                if x > max_x { max_x = x; }
+                if y < min_y { min_y = y; }
+                if y > max_y { max_y = y; }
+            }
+        }
+    }
+
+    if max_x < min_x || max_y < min_y {
+        eprintln!("Advertencia: sin píxeles opacos en {}", name);
+        return;
+    }
+
+    let crop_w = max_x - min_x + 1;
+    let crop_h = max_y - min_y + 1;
+
+    // d) Reducir a ~128 px de alto con promedio por área y binarizar alpha (>= 0.5)
+    let out_h = 128;
+    let out_w = (((out_h as f32 * crop_w as f32) / crop_h as f32).round() as i32).max(1);
+
+    let mut out_img = Image::gen_image_color(out_w, out_h, Color::BLANK);
+
+    for oy in 0..out_h {
+        let sy0 = (oy as f32 * crop_h as f32 / out_h as f32).floor() as i32;
+        let sy1 = (((oy + 1) as f32 * crop_h as f32 / out_h as f32).ceil() as i32).max(sy0 + 1).min(crop_h);
+
+        for ox in 0..out_w {
+            let sx0 = (ox as f32 * crop_w as f32 / out_w as f32).floor() as i32;
+            let sx1 = (((ox + 1) as f32 * crop_w as f32 / out_w as f32).ceil() as i32).max(sx0 + 1).min(crop_w);
+
+            let mut total_pixels = 0;
+            let mut opaque_count = 0;
+            let mut sum_r = 0.0f32;
+            let mut sum_g = 0.0f32;
+            let mut sum_b = 0.0f32;
+
+            for iy in sy0..sy1 {
+                let src_y = min_y + iy;
+                for ix in sx0..sx1 {
+                    let src_x = min_x + ix;
+                    let idx = (src_y * w + src_x) as usize;
+                    total_pixels += 1;
+                    if opaque[idx] {
+                        opaque_count += 1;
+                        let c = &src_colors[idx];
+                        sum_r += c.r as f32;
+                        sum_g += c.g as f32;
+                        sum_b += c.b as f32;
+                    }
+                }
+            }
+
+            let alpha_frac = if total_pixels > 0 {
+                opaque_count as f32 / total_pixels as f32
+            } else {
+                0.0
+            };
+
+            if alpha_frac >= 0.5 && opaque_count > 0 {
+                let avg_r = (sum_r / opaque_count as f32).round().clamp(0.0, 255.0) as u8;
+                let avg_g = (sum_g / opaque_count as f32).round().clamp(0.0, 255.0) as u8;
+                let avg_b = (sum_b / opaque_count as f32).round().clamp(0.0, 255.0) as u8;
+                out_img.draw_pixel(ox, oy, Color::new(avg_r, avg_g, avg_b, 255));
+            } else {
+                out_img.draw_pixel(ox, oy, Color::BLANK);
+            }
+        }
+    }
+
+    out_img.export_image(png_path);
 }
 
 fn generate_if_missing<F: FnOnce() -> Image>(path: &str, generator: F) {
