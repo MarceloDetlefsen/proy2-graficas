@@ -56,42 +56,37 @@ impl Scene {
         let mut cubes = Vec::new();
 
         // --- Terreno procedural (20 pts) ---
-        // Reutiliza generate_terrain ya probado en clase.
+        // Reutiliza generate_terrain con columnas rellenas, colinas, camino y arroyo.
         let terrain = procedural::generate_terrain(
-            16, 16, 4, 0.15, 1234,
+            16, 16, 5, 0.18, 1234,
             &procedural::TerrainPalette {
                 grass: mats.grass,
                 dirt: mats.dirt,
                 stone: mats.stone,
                 sand: mats.dirt, // sin playa en este bioma; se reusa dirt
                 snow: mats.stone, // sin nieve en este bioma; se reusa stone
+                water: mats.water,
             },
         );
         cubes.extend(terrain);
 
         // --- Árboles (4 esquinas, como en la referencia de Chrono Trigger) ---
         for &(x, z) in &[(-6.0, -6.0), (6.0, -6.0), (-6.0, 6.0), (6.0, 6.0)] {
-            cubes.extend(Self::tree(Vector3::new(x, 1.0, z), &mats));
+            let tree_y = terrain_height_at(&cubes, x, z);
+            cubes.extend(Self::tree(Vector3::new(x, tree_y, z), &mats));
         }
 
-        let ground_y = 3.0;
+        let ground_y = terrain_height_at(&cubes, 0.0, 0.0);
         // --- Círculo de piedras + fogata al centro (emisivo) ---
         for &(x, z) in &[(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
             cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.5, mats.stone));
         }
         cubes.push(Cube::new(Vector3::new(-0.25, ground_y, -0.25), 0.5, mats.campfire));
 
-        // --- Cristales/gemas tirados cerca de la fogata y el charco (refracción + reflexión) ---
+        // --- Cristales/gemas tirados cerca de la fogata (refracción + reflexión) ---
         for &(x, z) in &[(-2.0, 0.5), (2.2, -0.8), (0.7, 1.7)] {
             cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.5, mats.gem));
         }
-
-        // --- Charco de agua a ras de suelo en depresión (reflexión) ---
-        cubes.push(Cube::new_box(
-            Vector3::new(3.0, 2.01, 3.0),
-            Vector3::new(2.8, 0.09, 2.8),
-            mats.water,
-        ));
 
         // --- Luces ---
         let lights = vec![Light::campfire(Vector3::new(0.0, ground_y + 0.8, 0.0))];
