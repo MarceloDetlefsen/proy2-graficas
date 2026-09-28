@@ -22,8 +22,22 @@ const HEIGHT: i32 = 600;
 // Comando ffmpeg para ensamblar el video de los frames generados por auto-orbit (--frames N):
 // ffmpeg -r 24 -i frames/frame_%04d.png -c:v libx264 -pix_fmt yuv420p video_diorama.mp4
 
+pub const PRESET_1_EYE: Vector3 = Vector3::new(0.50, 7.56, 9.32);
+pub const PRESET_1_TARGET: Vector3 = Vector3::new(0.50, 4.20, -0.60);
+
+pub fn preset_1_camera() -> Camera {
+    Camera::new(PRESET_1_EYE, PRESET_1_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
+pub const TOMA_6_EYE: Vector3 = Vector3::new(-2.15, 4.35, -0.40);
+pub const TOMA_6_TARGET: Vector3 = Vector3::new(-2.85, 4.22, -0.40);
+
+pub fn toma_6_camera() -> Camera {
+    Camera::new(TOMA_6_EYE, TOMA_6_TARGET, Vector3::new(0.0, 1.0, 0.0))
+}
+
 /// Calcula la vista de cámara para el auto-orbit según la especificación:
-/// 360 grados en 24 s, elevación mínima 22 grados (antes 15), radio mínimo seguro.
+/// 360 grados en 24 s, elevación mínima 22 grados, arrancando en el azimut de la tecla 1 (+Z mirando a -Z).
 fn get_orbit_camera(orbit_time: f32) -> (Vector3, Vector3) {
     let target = Vector3::new(0.5, 4.0, -0.6);
     let period = 24.0f32;
@@ -40,8 +54,8 @@ fn get_orbit_camera(orbit_time: f32) -> (Vector3, Vector3) {
     let p_max = 36.0 * deg2rad;
     let pitch = (p_min + p_max) * 0.5 + ((p_max - p_min) * 0.5) * (theta + std::f32::consts::FRAC_PI_4).sin();
 
-    // Comienza en encuadre frontal (yaw = -PI/2) y gira 360° en sentido horario
-    let yaw = theta - std::f32::consts::FRAC_PI_2;
+    // Arranca en el azimut de la tecla 1 (yaw = +PI/2, mirando de +Z hacia -Z) y da la vuelta completa de 360°
+    let yaw = theta + std::f32::consts::FRAC_PI_2;
     let eye = target + Vector3::new(
         dist * pitch.cos() * yaw.cos(),
         dist * pitch.sin(),
@@ -82,6 +96,7 @@ fn main() {
 
     let args: Vec<String> = std::env::args().collect();
     let check_layout = args.iter().any(|a| a == "--check-layout");
+    let docs_mode = args.iter().any(|a| a == "--docs");
     let toma5 = args.iter().any(|a| a == "--toma5" || a == "--gem-closeup" || a == "--gem");
     let toma6_on = args.iter().any(|a| a == "--toma6-on" || a == "--log-normal");
     let toma6_off = args.iter().any(|a| a == "--toma6-off" || a == "--log-nonormal");
@@ -94,6 +109,7 @@ fn main() {
     let moving_mode = args.iter().any(|a| a == "--moving");
     let headless = args.iter().any(|a| a == "--screenshot")
         || check_layout
+        || docs_mode
         || toma5
         || toma6_on
         || toma6_off
@@ -114,16 +130,12 @@ fn main() {
 
     let mut camera = if toma6_on || toma6_off {
         // Toma 6: Tronco de asiento libre visto de lado a ~1 bloque con luz rasante del fuego (>= 60% cuadro)
-        Camera::new(
-            Vector3::new(-1.85, 4.32, -0.40),
-            Vector3::new(-2.85, 4.22, -0.40),
-            Vector3::new(0.0, 1.0, 0.0),
-        )
+        toma_6_camera()
     } else if glint_view {
         // Closeup del destello del Gate (Easter egg escondido detrás del árbol)
         Camera::new(
-            Vector3::new(-1.80, 5.00, -7.00),
-            Vector3::new(-3.80, 5.20, -8.20),
+            Vector3::new(-2.60, 5.00, -6.60),
+            Vector3::new(-3.80, 4.80, -8.65),
             Vector3::new(0.0, 1.0, 0.0),
         )
     } else if toma5 {
@@ -163,21 +175,62 @@ fn main() {
         )
     } else {
         // Toma 1: Encuadre inicial frontal con vista completa del campamento nocturno
-        // Se ven los 7 personajes, la carpa, la fogata y el humo, con ~15% de margen y cielo entre copas
-        Camera::new(
-            Vector3::new(0.50, 8.40, 11.80),
-            Vector3::new(0.50, 4.20, -0.60),
-            Vector3::new(0.0, 1.0, 0.0),
-        )
+        preset_1_camera()
     };
 
     if check_layout {
-        run_check_layout(&scene, &camera);
+        run_check_layout(&scene);
         return;
     }
 
     let mut framebuffer = vec![Color::BLACK; (WIDTH * HEIGHT) as usize];
     let mut screenshot_saved = false;
+
+    // Procesar flag --docs para generar las 9 capturas oficiales en docs/screenshots/
+    if docs_mode {
+        std::fs::create_dir_all("docs/screenshots").expect("Failed to create docs/screenshots directory");
+        println!("Generando las 9 capturas oficiales de documentación (--docs)...");
+
+        let (orbit_eye_12, orbit_target_12) = get_orbit_camera(12.0);
+        let shots: [(&str, Camera, bool); 9] = [
+            ("docs/screenshots/01_encuadre_inicial.png", preset_1_camera(), true),
+            ("docs/screenshots/02_vista_elevada.png", Camera::new(Vector3::new(3.00, 16.50, 13.50), Vector3::new(0.50, 3.80, -0.60), Vector3::new(0.0, 1.0, 0.0)), true),
+            ("docs/screenshots/03_gemas_refraccion.png", Camera::new(Vector3::new(0.00, 4.75, 2.65), Vector3::new(0.00, 4.25, 0.40), Vector3::new(0.0, 1.0, 0.0)), true),
+            ("docs/screenshots/04_tronco_normal_on.png", toma_6_camera(), true),
+            ("docs/screenshots/05_tronco_normal_off.png", toma_6_camera(), false),
+            ("docs/screenshots/06_humo_estrellas.png", Camera::new(Vector3::new(0.00, 4.30, 2.50), Vector3::new(0.00, 7.80, 0.20), Vector3::new(0.0, 1.0, 0.0)), true),
+            ("docs/screenshots/07_arroyo_reflejo.png", Camera::new(Vector3::new(-4.20, 3.80, 5.00), Vector3::new(0.50, 3.45, 5.00), Vector3::new(0.0, 1.0, 0.0)), true),
+            ("docs/screenshots/08_masamune.png", Camera::new(Vector3::new(-3.40, 4.80, 1.20), Vector3::new(-4.40, 4.30, -0.30), Vector3::new(0.0, 1.0, 0.0)), true),
+            ("docs/screenshots/09_portal_escondido.png", Camera::new(orbit_eye_12, orbit_target_12, Vector3::new(0.0, 1.0, 0.0)), true),
+        ];
+
+        for (path, mut cam, use_nm) in shots {
+            scene.use_normal_maps = use_nm;
+            cam.update_basis_vectors();
+            scene.camera_forward = cam.forward;
+            scene.camera_right = cam.right;
+            scene.camera_up = cam.up;
+            let cam_dist = (cam.eye - cam.center).length();
+            if path.contains("09_portal_escondido") {
+                scene.tree_cutaway_dist = Some(cam_dist - 1.5);
+            } else {
+                scene.tree_cutaway_dist = None;
+            }
+
+            render(&scene, &cam, &mut framebuffer, 1);
+
+            let mut img = Image::gen_image_color(WIDTH, HEIGHT, Color::BLACK);
+            for y in 0..HEIGHT {
+                for x in 0..WIDTH {
+                    img.draw_pixel(x, y, framebuffer[(y * WIDTH + x) as usize]);
+                }
+            }
+            img.export_image(path);
+            println!("Captura guardada: {}", path);
+        }
+        println!("Generación de documentación completada exitosamente.");
+        return;
+    }
 
     // Procesar flag --frames N si fue especificado por línea de comandos
     if let Some(num_frames) = frames_arg {
@@ -280,7 +333,7 @@ fn main() {
         // --- Presets de tomas: Teclas 1 a 7 ---
         if rl.is_key_pressed(KeyboardKey::KEY_ONE) {
             // Toma 1: Encuadre inicial mirando a la fogata
-            camera.set_view(Vector3::new(0.50, 8.40, 11.80), Vector3::new(0.50, 4.20, -0.60));
+            camera.set_view(PRESET_1_EYE, PRESET_1_TARGET);
             auto_orbit = false;
             moved = true;
         }
@@ -310,7 +363,7 @@ fn main() {
         }
         if rl.is_key_pressed(KeyboardKey::KEY_SIX) {
             // Toma 6: Tronco de asiento libre visto de lado a ~1 bloque con luz rasante del fuego
-            camera.set_view(Vector3::new(-1.85, 4.32, -0.40), Vector3::new(-2.85, 4.22, -0.40));
+            camera.set_view(TOMA_6_EYE, TOMA_6_TARGET);
             auto_orbit = false;
             moved = true;
         }
@@ -566,10 +619,9 @@ fn framebuffer_as_bytes(fb: &[Color]) -> &[u8] {
     }
 }
 
-/// Verificación automática del layout para los 7 personajes y la llama de la fogata.
-/// Traza 5x5 rayos primarios por entidad (meta >= 85% de visibilidad no ocluida).
-/// Evalúa el solape proyectado en pantalla entre cada par de personajes (meta <= 10.0%).
-fn run_check_layout(scene: &Scene, camera: &Camera) {
+/// Verificación automática del layout para los 7 personajes, la llama, el portal escondido y la toma 6.
+fn run_check_layout(scene: &Scene) {
+    let camera = preset_1_camera();
     println!("=== VERIFICACIÓN AUTOMÁTICA DE LAYOUT (--check-layout) ===");
     println!(
         "Cámara de prueba (Toma 1): Eye = ({:.2}, {:.2}, {:.2}), Target = ({:.2}, {:.2}, {:.2})",
@@ -774,19 +826,204 @@ fn run_check_layout(scene: &Scene, camera: &Camera) {
         println!("  - Ningún par de personajes presenta solape en pantalla (todos 0.0%).");
     }
 
-    println!("\n=== RESUMEN DE LAYOUT ===");
-    println!(
-        "Visibilidad (>= 85%): {}",
-        if all_vis_passed { "TODO PASS" } else { "FAIL DETECTADO" }
-    );
-    println!(
-        "Solape entre pares (<= 10%): {}",
-        if all_overlap_passed { "TODO PASS" } else { "FAIL DETECTADO" }
-    );
-    println!(
-        "Resultado global: {}",
-        if all_vis_passed && all_overlap_passed {
-            "PASS (Layout óptimo)"
+    println!("\n--- 3. Verificación de Portal Escondido (5x5 rayos, Toma 1 = 0%, Órbita >= 60% en 2-5 frames) ---");
+    let mut portal_passed = false;
+    if let Some(portal_bb) = scene.billboards.iter().find(|b| b.texture == "assets/gate_vortex.png") {
+        println!("Portal encontrado en posición ({:.2}, {:.2}, {:.2}), tamaño {:.2}",
+            portal_bb.position.x, portal_bb.position.y, portal_bb.position.z, portal_bb.width);
+
+        let test_portal_vis = |cam: &Camera, cutaway: Option<f32>| -> (usize, f32) {
+            let center = portal_bb.position + cam.up * (portal_bb.height * 0.5);
+            let mut vis_count = 0;
+            for gy in 0..5 {
+                let v = (gy as f32 + 0.5) / 5.0;
+                for gx in 0..5 {
+                    let u = (gx as f32 + 0.5) / 5.0;
+                    let sample_pos = center
+                        + cam.right * ((u - 0.5) * portal_bb.width)
+                        + cam.up * ((0.5 - v) * portal_bb.height);
+                    let ray_dir = (sample_pos - cam.eye).normalized();
+                    let target_dist = (sample_pos - cam.eye).length();
+                    let mut occluded = false;
+
+                    if let Some((t_cube, _, _, _)) = scene.grid.intersect_closest(&scene.cubes, cam.eye, ray_dir, cutaway) {
+                        if t_cube < target_dist - 0.05 {
+                            occluded = true;
+                        }
+                    }
+                    if !occluded {
+                        for other_bb in &scene.billboards {
+                            if other_bb.texture == portal_bb.texture {
+                                continue;
+                            }
+                            if let Some((_, bu, bv)) = other_bb.intersect(
+                                cam.eye,
+                                ray_dir,
+                                cam.forward,
+                                cam.right,
+                                cam.up,
+                                target_dist - 0.05,
+                            ) {
+                                let (_, alpha) = scene.textures.sample_uv_rgba(other_bb.texture, bu, bv);
+                                if alpha >= 0.5 {
+                                    occluded = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if !occluded {
+                        vis_count += 1;
+                    }
+                }
+            }
+            (vis_count, (vis_count as f32 / 25.0) * 100.0)
+        };
+
+        let (toma1_vis_count, toma1_vis_pct) = test_portal_vis(&camera, None);
+        let toma1_ok = toma1_vis_pct == 0.0;
+        println!("  - Toma 1 (Encuadre inicial): {:>2}/25 rayos ({:>5.1}%) -> [{}]",
+            toma1_vis_count, toma1_vis_pct, if toma1_ok { "PASS (Oculto 0%)" } else { "FAIL (Visible desde toma 1)" });
+
+        let mut orbit_vis_pcts = Vec::with_capacity(24);
+        let mut visible_frames = Vec::new();
+        println!("  - Visibilidad en los 24 frames de la órbita (azimut inicial = Tecla 1):");
+        for f in 0..24 {
+            let t = f as f32;
+            let (orbit_eye, orbit_target) = get_orbit_camera(t);
+            let mut cam = Camera::new(orbit_eye, orbit_target, Vector3::new(0.0, 1.0, 0.0));
+            cam.resolve_collision(&scene.cubes);
+            cam.update_basis_vectors();
+            let cam_dist = (cam.eye - cam.center).length();
+            let cutaway = Some(cam_dist - 1.5);
+
+            let (vis_count, pct) = test_portal_vis(&cam, cutaway);
+            orbit_vis_pcts.push(pct);
+            if pct >= 60.0 {
+                visible_frames.push(f);
+            }
+            println!("      Frame {:02}: {:>2}/25 rayos ({:>5.1}%){}",
+                f, vis_count, pct, if pct >= 60.0 { " [VISIBLE >= 60%]" } else { "" });
+        }
+
+        let mut max_consecutive = 0;
+        let mut curr_consecutive = 0;
+        for &pct in &orbit_vis_pcts {
+            if pct >= 60.0 {
+                curr_consecutive += 1;
+                if curr_consecutive > max_consecutive {
+                    max_consecutive = curr_consecutive;
+                }
+            } else {
+                curr_consecutive = 0;
+            }
+        }
+
+        let orbit_ok = max_consecutive >= 2 && max_consecutive <= 5;
+        println!("  - Frames con >= 60% visibilidad: {:?}", visible_frames);
+        println!("  - Racha consecutiva máxima: {} frames (criterio: entre 2 y 5 frames) -> [{}]",
+            max_consecutive, if orbit_ok { "PASS" } else { "FAIL" });
+
+        portal_passed = toma1_ok && orbit_ok;
+    } else {
+        eprintln!("  ERROR: No se encontró el billboard del portal en la escena!");
+    }
+
+    println!("\n--- 4. Verificación de Toma 6 (Tronco B, meta >= 60% ocupación del cuadro) ---");
+    let cam6 = toma_6_camera();
+    println!("Cámara Toma 6: Eye = ({:.2}, {:.2}, {:.2}), Target = ({:.2}, {:.2}, {:.2})",
+        cam6.eye.x, cam6.eye.y, cam6.eye.z, cam6.center.x, cam6.center.y, cam6.center.z);
+
+    // Muestreo con grilla de rayos primarios sobre el cuadro de la cámara
+    let mut hits_5x5 = 0;
+    for gy in 0..5 {
+        let py = (1.0 - 2.0 * (gy as f32 + 0.5) / 5.0) * tan_half_fov;
+        for gx in 0..5 {
+            let px = (2.0 * (gx as f32 + 0.5) / 5.0 - 1.0) * aspect * tan_half_fov;
+            let dir = cam6.basis_change(&Vector3::new(px, py, -1.0)).normalized();
+
+            let mut hit_is_log = false;
+            let mut closest_t = f32::MAX;
+
+            if let Some((t_cube, cube_idx, _, _)) = scene.grid.intersect_closest(&scene.cubes, cam6.eye, dir, None) {
+                closest_t = t_cube;
+                let c = &scene.cubes[cube_idx];
+                // Tronco B está en x in [-3.25, -2.75], z in [-1.4, 0.6]
+                if c.min.x < -2.7 && c.max.x > -3.3 && c.min.z < -1.3 && c.max.z > 0.5 && !c.is_tree {
+                    hit_is_log = true;
+                }
+            }
+
+            if hit_is_log {
+                for bb in &scene.billboards {
+                    if let Some((_, u, v)) = bb.intersect(cam6.eye, dir, cam6.forward, cam6.right, cam6.up, closest_t) {
+                        let (_, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                        if alpha >= 0.5 {
+                            hit_is_log = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if hit_is_log {
+                hits_5x5 += 1;
+            }
+        }
+    }
+    let pct_5x5 = (hits_5x5 as f32 / 25.0) * 100.0;
+
+    let mut hits_fine = 0;
+    let fine_n = 25;
+    for gy in 0..fine_n {
+        let py = (1.0 - 2.0 * (gy as f32 + 0.5) / fine_n as f32) * tan_half_fov;
+        for gx in 0..fine_n {
+            let px = (2.0 * (gx as f32 + 0.5) / fine_n as f32 - 1.0) * aspect * tan_half_fov;
+            let dir = cam6.basis_change(&Vector3::new(px, py, -1.0)).normalized();
+
+            let mut hit_is_log = false;
+            let mut closest_t = f32::MAX;
+
+            if let Some((t_cube, cube_idx, _, _)) = scene.grid.intersect_closest(&scene.cubes, cam6.eye, dir, None) {
+                closest_t = t_cube;
+                let c = &scene.cubes[cube_idx];
+                if c.min.x < -2.7 && c.max.x > -3.3 && c.min.z < -1.3 && c.max.z > 0.5 && !c.is_tree {
+                    hit_is_log = true;
+                }
+            }
+
+            if hit_is_log {
+                for bb in &scene.billboards {
+                    if let Some((_, u, v)) = bb.intersect(cam6.eye, dir, cam6.forward, cam6.right, cam6.up, closest_t) {
+                        let (_, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                        if alpha >= 0.5 {
+                            hit_is_log = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if hit_is_log {
+                hits_fine += 1;
+            }
+        }
+    }
+    let pct_fine = (hits_fine as f32 / (fine_n * fine_n) as f32) * 100.0;
+    let toma6_passed = pct_fine >= 60.0;
+
+    println!("  - Ocupación grilla 5x5: {:>2}/25 rayos ({:>5.1}%)", hits_5x5, pct_5x5);
+    println!("  - Ocupación grilla fina (25x25): {:>3}/625 rayos ({:>5.1}%) -> [{}]",
+        hits_fine, pct_fine, if toma6_passed { "PASS (>= 60%)" } else { "FAIL (< 60%)" });
+
+    println!("\n=== RESUMEN GLOBAL ===");
+    println!("1. Visibilidad personajes (>= 85%): {}", if all_vis_passed { "TODO PASS" } else { "FAIL DETECTADO" });
+    println!("2. Solape entre personajes (<= 10%): {}", if all_overlap_passed { "TODO PASS" } else { "FAIL DETECTADO" });
+    println!("3. Portal escondido (Toma 1=0%, Órbita 2-5 frames): {}", if portal_passed { "TODO PASS" } else { "FAIL DETECTADO" });
+    println!("4. Toma 6 ocupación tronco (>= 60%): {}", if toma6_passed { "TODO PASS" } else { "FAIL DETECTADO" });
+    println!("Resultado: {}",
+        if all_vis_passed && all_overlap_passed && portal_passed && toma6_passed {
+            "PASS (Todos los criterios cumplidos)"
         } else {
             "FAIL (Ajuste requerido)"
         }
