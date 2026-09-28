@@ -34,6 +34,9 @@ pub struct Material {
     /// Ruta al mapa normal, si tiene. Perturba la normal de la superficie
     /// para simular detalle (corteza, rugosidad de piedra) sin más geometría.
     pub normal_map: Option<&'static str>,
+
+    /// Indica si es agua (para reflejos Fresnel y límite de recursión a 1 nivel).
+    pub is_water: bool,
 }
 
 impl Material {
@@ -47,6 +50,7 @@ impl Material {
             emission: Vector3::zero(),
             texture: None,
             normal_map: None,
+            is_water: false,
         }
     }
 
@@ -73,6 +77,11 @@ impl Material {
 
     pub fn with_emission(mut self, emission: Vector3) -> Self {
         self.emission = emission;
+        self
+    }
+
+    pub fn with_water(mut self, is_water: bool) -> Self {
+        self.is_water = is_water;
         self
     }
 
@@ -193,8 +202,9 @@ impl SceneMaterials {
 
             water: Material::new(Vector3::new(0.15, 0.25, 0.35), 40.0)
                 .with_texture("assets/water.png")
-                .with_reflectivity(0.5)
-                .with_refraction(0.3, 1.33),
+                .with_reflectivity(0.50)
+                .with_refraction(0.50, 1.33)
+                .with_water(true),
 
             straw: Material::new(Vector3::new(0.65, 0.50, 0.25), 3.0)
                 .with_texture("assets/straw.png"),

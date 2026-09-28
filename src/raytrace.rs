@@ -484,12 +484,31 @@ pub fn fast_ray_aabb(origin: Vector3, inv_dir: Vector3, min: Vector3, max: Vecto
                     + trans_color * cube.material.transparency;
             }
 
-            if cube.material.reflectivity > 0.0 && depth < MAX_DEPTH {
-                let refl_dir = reflect(&dir, &shading_normal);
-                let refl_orig = hit_point + normal * 1e-3;
-                let refl_color = trace_ray(scene, refl_orig, refl_dir, depth + 1);
-                final_color = final_color * (1.0 - cube.material.reflectivity)
-                    + refl_color * cube.material.reflectivity;
+            if scene.use_reflections && cube.material.reflectivity > 0.0 && depth < MAX_DEPTH {
+                let can_reflect = if cube.material.is_water {
+                    depth == 0 // El reflejo del agua no debe recursar más de 1 nivel
+                } else {
+                    true
+                };
+
+                if can_reflect {
+                    let eff_refl = if cube.material.is_water {
+                        // Término tipo Fresnel: r = r0 + (1 - r0) * (1 - cos)^5 con r0 ~ 0.15
+                        let r0 = 0.15f32;
+                        let cos_theta = normal.dot(view_dir).clamp(0.0, 1.0);
+                        let fresnel = r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5);
+                        (cube.material.reflectivity * (fresnel / 0.50)).clamp(0.0, 1.0)
+                    } else {
+                        cube.material.reflectivity
+                    };
+
+                    if eff_refl > 0.0 {
+                        let refl_dir = reflect(&dir, &shading_normal);
+                        let refl_orig = hit_point + normal * 1e-3;
+                        let refl_color = trace_ray(scene, refl_orig, refl_dir, depth + 1);
+                        final_color = final_color * (1.0 - eff_refl) + refl_color * eff_refl;
+                    }
+                }
             }
 
             let mut out_color = final_color + cube.material.emission;
