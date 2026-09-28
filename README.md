@@ -104,6 +104,7 @@ cargo run --release -- --frames 24
 | **Orbitar verticalmente (elevación)** | Flechas `Arriba` / `Abajo` |
 | **Zoom cámara (acercar / alejar)** | `Rueda del Ratón` |
 | **Auto-órbita continua 360°** | `R` |
+| **Mostrar / ocultar contador de FPS** | `F` |
 | **Alternar mapas de normales (ON / OFF)** | `N` |
 | **Alternar reflexiones y Fresnel (ON / OFF)** | `X` |
 | **Preset 1: Encuadre inicial mirando a la fogata** | `1` |

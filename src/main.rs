@@ -425,6 +425,7 @@ fn main() {
     let mut auto_orbit = false;
     let mut orbit_time = 0.0f32;
     let mut transition: Option<CameraTransition> = None;
+    let mut show_fps = true;
 
     while !rl.window_should_close() {
         if let Some(ref m) = music {
@@ -450,6 +451,12 @@ fn main() {
             camera.orbit(0.0, 0.0);
             needs_fullres = true;
             rendered_fullres = false;
+        }
+
+        // --- Toggle de contador de FPS: tecla F ---
+        if rl.is_key_pressed(KeyboardKey::KEY_F) {
+            show_fps = !show_fps;
+            println!("Contador de FPS: {}", if show_fps { "ACTIVADO" } else { "DESACTIVADO" });
         }
 
         // --- Auto-órbita con tecla R: 360° en 24 s ---
@@ -690,7 +697,9 @@ fn main() {
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
         d.draw_texture(&render_texture, 0, 0, Color::WHITE);
-        d.draw_fps(10, 10);
+        if show_fps {
+            d.draw_fps(10, 10);
+        }
     }
 }
 
