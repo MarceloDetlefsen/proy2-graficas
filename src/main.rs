@@ -29,21 +29,37 @@ fn main() {
 
     let args: Vec<String> = std::env::args().collect();
     let headless = args.iter().any(|a| a == "--screenshot");
+    let rotated = args.iter().any(|a| a == "--rotated");
 
     // 2. Crear la escena y cargar texturas en CPU
     let mut scene = Scene::campfire_diorama();
     scene.load_textures(&mut rl, &thread);
 
-    let mut camera = Camera::new(
-        Vector3::new(-2.8, 3.6, 2.8),
-        Vector3::new(-0.5, 3.1, -0.2),
-        Vector3::new(0.0, 1.0, 0.0),
-    );
+    let mut camera = if rotated {
+        Camera::new(
+            Vector3::new(8.5, 5.8, 0.0),
+            Vector3::new(-0.8, 3.2, 0.0),
+            Vector3::new(0.0, 1.0, 0.0),
+        )
+    } else {
+        Camera::new(
+            Vector3::new(0.0, 5.8, 8.5),
+            Vector3::new(0.0, 3.2, -0.8),
+            Vector3::new(0.0, 1.0, 0.0),
+        )
+    };
 
     let mut framebuffer = vec![Color::BLACK; (WIDTH * HEIGHT) as usize];
     let mut screenshot_saved = false;
 
     while !rl.window_should_close() {
+        // --- Toggle de depuración de mapas normales: tecla N ---
+        if rl.is_key_pressed(KeyboardKey::KEY_N) {
+            scene.use_normal_maps = !scene.use_normal_maps;
+            println!("Mapas normales: {}", if scene.use_normal_maps { "ACTIVADOS" } else { "DESACTIVADOS" });
+            camera.orbit(0.0, 0.0); // Marca camera como cambiada para forzar re-render
+        }
+
         // --- Input de cámara: rotación con mouse/flechas, zoom con scroll ---
         let dt = rl.get_frame_time();
         if rl.is_key_down(KeyboardKey::KEY_LEFT) {
@@ -65,6 +81,9 @@ fn main() {
 
         // --- Render (paralelizado por filas con rayon) ---
         if camera.is_changed() {
+            scene.camera_forward = camera.forward;
+            scene.camera_right = camera.right;
+            scene.camera_up = camera.up;
             render(&scene, &camera, &mut framebuffer);
 
             if !screenshot_saved {
@@ -74,7 +93,8 @@ fn main() {
                         img.draw_pixel(x, y, framebuffer[(y * WIDTH + x) as usize]);
                     }
                 }
-                img.export_image("screenshot.png");
+                let out_file = if rotated { "screenshot_rotated.png" } else { "screenshot.png" };
+                img.export_image(out_file);
                 screenshot_saved = true;
                 if headless {
                     break;
