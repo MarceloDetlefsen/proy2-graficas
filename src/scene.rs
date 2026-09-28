@@ -208,7 +208,7 @@ impl Scene {
 
         // --- 5 Rocas pequeñas de piedra con mapa normal en la periferia ---
         let rock_configs = [
-            (-3.0, -0.6, 0.55),
+            (-3.8, -1.8, 0.55),
             (2.8, -1.8, 0.60),
             (-2.6, 2.2, 0.48),
             (3.2, 2.0, 0.52),
@@ -486,15 +486,15 @@ impl Scene {
                 .with_blob_shadow(true),
         );
 
-        // --- Easter Egg: Destello tenue del Gate reducido ~40% y escondido detrás del árbol gigante 5 (-3.8, -7.4) ---
-        let glint_size = 0.36f32;
+        // --- Easter Egg: Portal escondido (Gate Vortex) entre troncos perimetrales al fondo (-2.10, -8.60) ---
+        let vortex_size = 0.80f32;
         party_billboards.push(
             Billboard::new(
-                Vector3::new(-3.80, 5.20 - glint_size * 0.5, -8.20),
-                glint_size,
-                glint_size,
-                "assets/gate_glint.png",
-            ).with_emission(Vector3::new(0.04, 0.15, 0.25)),
+                Vector3::new(-2.10, 4.50, -8.60),
+                vortex_size,
+                vortex_size,
+                "assets/gate_vortex.png",
+            ).with_emission(Vector3::new(0.03, 0.12, 0.22)),
         );
 
         // --- 3. Mechones de pasto en la periferia de la clarería (~20 billboards grass_tuft) ---
@@ -632,7 +632,7 @@ impl Scene {
             "assets/mushroom.png",
             "assets/cloth.png",
             "assets/tent.png",
-            "assets/gate_glint.png",
+            "assets/gate_vortex.png",
             "assets/planks.png",
             "assets/party/Chrono.png",
             "assets/party/Marle.png",

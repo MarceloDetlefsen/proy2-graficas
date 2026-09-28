@@ -37,12 +37,6 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/cloth.png", gen_cloth_texture);
     generate_if_missing("assets/tent.png", gen_tent_texture);
     generate_if_missing("assets/gate_vortex.png", gen_gate_vortex_texture);
-    generate_if_missing("assets/gate_glint.png", gen_gate_glint_texture);
-
-    generate_if_missing("assets/party/hero.png", gen_hero_sprite);
-    generate_if_missing("assets/party/mage.png", gen_mage_sprite);
-    generate_if_missing("assets/party/warrior.png", gen_warrior_sprite);
-    generate_if_missing("assets/party/rogue.png", gen_rogue_sprite);
 
     process_party_sprites();
 }
@@ -740,135 +734,7 @@ fn x_wave(y: i32) -> f32 {
     (y as f32 * 0.4).sin()
 }
 
-// --- Sprites de Personajes (32x32 px, fondo transparente alpha=0) ---
 
-fn gen_hero_sprite() -> Image {
-    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
-    let skin = Color::new(245, 195, 160, 255);
-    let red_hair = Color::new(215, 40, 30, 255);
-    let blue_tunic = Color::new(35, 80, 175, 255);
-    let white_pants = Color::new(225, 225, 235, 255);
-    let boots = Color::new(95, 55, 25, 255);
-    let sword = Color::new(180, 185, 195, 255);
-
-    // Cabello puntiagudo (Crono)
-    fill_rect(&mut img, 12, 4, 8, 6, red_hair);
-    img.draw_pixel(11, 5, red_hair);
-    img.draw_pixel(20, 5, red_hair);
-    img.draw_pixel(10, 3, red_hair);
-    img.draw_pixel(15, 2, red_hair);
-    img.draw_pixel(21, 3, red_hair);
-
-    // Rostro
-    fill_rect(&mut img, 13, 10, 6, 5, skin);
-    img.draw_pixel(14, 12, Color::BLACK); // Ojo izq
-    img.draw_pixel(17, 12, Color::BLACK); // Ojo der
-
-    // Túnica azul
-    fill_rect(&mut img, 11, 15, 10, 8, blue_tunic);
-    fill_rect(&mut img, 11, 20, 10, 2, Color::new(210, 170, 40, 255)); // Cinturón amarillo
-
-    // Pantalones
-    fill_rect(&mut img, 12, 23, 3, 5, white_pants);
-    fill_rect(&mut img, 17, 23, 3, 5, white_pants);
-
-    // Botas
-    fill_rect(&mut img, 11, 28, 4, 3, boots);
-    fill_rect(&mut img, 17, 28, 4, 3, boots);
-
-    // Espada a la espalda
-    fill_rect(&mut img, 21, 7, 2, 12, sword);
-    img
-}
-
-fn gen_mage_sprite() -> Image {
-    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
-    let helmet = Color::new(110, 70, 40, 255);
-    let goggles = Color::new(40, 200, 180, 255);
-    let skin = Color::new(245, 195, 160, 255);
-    let orange_cape = Color::new(220, 115, 30, 255);
-    let green_shirt = Color::new(50, 135, 60, 255);
-    let boots = Color::new(80, 48, 24, 255);
-
-    // Casco y visor (Lucca)
-    fill_rect(&mut img, 11, 5, 10, 7, helmet);
-    fill_rect(&mut img, 12, 9, 8, 3, Color::new(200, 160, 40, 255)); // Montura gafas
-    fill_rect(&mut img, 13, 10, 2, 2, goggles);
-    fill_rect(&mut img, 17, 10, 2, 2, goggles);
-
-    // Rostro
-    fill_rect(&mut img, 13, 12, 6, 4, skin);
-
-    // Capa y camisa
-    fill_rect(&mut img, 10, 16, 12, 8, orange_cape);
-    fill_rect(&mut img, 14, 16, 4, 5, green_shirt);
-
-    // Piernas y botas
-    fill_rect(&mut img, 12, 24, 3, 4, Color::new(60, 60, 70, 255));
-    fill_rect(&mut img, 17, 24, 3, 4, Color::new(60, 60, 70, 255));
-    fill_rect(&mut img, 11, 28, 4, 3, boots);
-    fill_rect(&mut img, 17, 28, 4, 3, boots);
-    img
-}
-
-fn gen_warrior_sprite() -> Image {
-    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
-    let armor = Color::new(180, 185, 195, 255);
-    let cape = Color::new(45, 125, 55, 255);
-    let gold = Color::new(230, 190, 40, 255);
-    let dark_metal = Color::new(100, 105, 115, 255);
-
-    // Casco de caballero
-    fill_rect(&mut img, 12, 5, 8, 8, armor);
-    fill_rect(&mut img, 13, 9, 6, 2, Color::new(25, 25, 30, 255)); // Ranura visor
-    img.draw_pixel(15, 4, gold);
-    img.draw_pixel(16, 4, gold);
-
-    // Capa verde a los costados
-    fill_rect(&mut img, 8, 13, 4, 14, cape);
-    fill_rect(&mut img, 20, 13, 4, 14, cape);
-
-    // Peto de armadura
-    fill_rect(&mut img, 11, 13, 10, 9, armor);
-    fill_rect(&mut img, 14, 16, 4, 4, gold); // Emblema dorado
-
-    // Grebas / piernas
-    fill_rect(&mut img, 12, 22, 3, 6, dark_metal);
-    fill_rect(&mut img, 17, 22, 3, 6, dark_metal);
-    fill_rect(&mut img, 11, 28, 4, 3, armor);
-    fill_rect(&mut img, 17, 28, 4, 3, armor);
-    img
-}
-
-fn gen_rogue_sprite() -> Image {
-    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
-    let blonde = Color::new(245, 210, 60, 255);
-    let skin = Color::new(245, 195, 160, 255);
-    let white_tunic = Color::new(240, 240, 250, 255);
-    let cyan_trim = Color::new(45, 185, 215, 255);
-    let boots = Color::new(85, 52, 26, 255);
-
-    // Cabello rubio y cola de caballo (Marle)
-    fill_rect(&mut img, 12, 4, 8, 7, blonde);
-    fill_rect(&mut img, 20, 6, 3, 8, blonde); // Coleta lateral
-
-    // Rostro
-    fill_rect(&mut img, 13, 10, 6, 5, skin);
-    img.draw_pixel(14, 12, Color::BLACK);
-    img.draw_pixel(17, 12, Color::BLACK);
-
-    // Túnica blanca con ribete celeste
-    fill_rect(&mut img, 11, 15, 10, 8, white_tunic);
-    fill_rect(&mut img, 13, 15, 6, 2, cyan_trim);
-    fill_rect(&mut img, 11, 21, 10, 2, Color::new(180, 130, 60, 255)); // Faja marrón
-
-    // Piernas y botas
-    fill_rect(&mut img, 12, 23, 3, 5, skin);
-    fill_rect(&mut img, 17, 23, 3, 5, skin);
-    fill_rect(&mut img, 11, 28, 4, 3, boots);
-    fill_rect(&mut img, 17, 28, 4, 3, boots);
-    img
-}
 
 fn fill_rect(img: &mut Image, x_start: i32, y_start: i32, w: i32, h: i32, color: Color) {
     for y in y_start..(y_start + h) {
@@ -1053,15 +919,15 @@ fn gen_gate_vortex_texture() -> Image {
                 continue;
             }
 
-            // Exclusivamente gama celeste y cian puro (sin sombras oscuras ni marrones)
+            // Exclusivamente gama celeste y cian puro saturado (sin núcleo blanco ni marrones)
             let c = if dist < 3.2 {
-                Color::new(235, 255, 255, 255) // Núcleo celestial resplandeciente
+                Color::new(45, 215, 255, 255)  // Núcleo cian saturado resplandeciente (sin blanco)
             } else if spiral > 0.25 {
-                Color::new(65, 220, 255, 255)  // Brazo espiral celeste brillante
+                Color::new(30, 195, 255, 255)  // Brazo espiral celeste brillante
             } else if spiral > -0.28 {
-                Color::new(25, 160, 245, 255)  // Flujo cian intermedio
+                Color::new(18, 150, 245, 255)  // Flujo cian intermedio
             } else {
-                Color::new(12, 105, 210, 255)  // Azul cósmico puro del vórtice
+                Color::new(10, 95, 205, 255)   // Azul cósmico puro del vórtice
             };
             img.draw_pixel(x, y, c);
         }
@@ -1069,41 +935,4 @@ fn gen_gate_vortex_texture() -> Image {
     img
 }
 
-/// Destello tenue del portal del tiempo (Easter egg discreto entre árboles lejanos, 24x24 px)
-fn gen_gate_glint_texture() -> Image {
-    let mut img = Image::gen_image_color(24, 24, Color::BLANK);
-    let cx = 11.5f32;
-    let cy = 11.5f32;
 
-    for y in 0..24 {
-        for x in 0..24 {
-            let dx = x as f32 + 0.5 - cx;
-            let dy = y as f32 + 0.5 - cy;
-            let dist = (dx * dx + dy * dy).sqrt();
-            if dist > 10.5 {
-                continue;
-            }
-
-            // Rayos de estrella en cruz
-            let is_cross_ray = (dx.abs() <= 1.0 && dist <= 8.5) || (dy.abs() <= 1.0 && dist <= 8.5);
-            let dither = (x + y) % 2 == 0;
-
-            // Borde exterior con dithering a alpha 0
-            if dist > 6.5 && !is_cross_ray && !dither {
-                continue;
-            }
-
-            let c = if dist < 2.5 {
-                Color::new(65, 215, 255, 255)  // Núcleo cian saturado (sin blanco)
-            } else if dist < 4.5 || (is_cross_ray && dist < 6.0) {
-                Color::new(35, 175, 250, 255)  // Brillo celeste intermedio
-            } else if is_cross_ray || dist < 7.0 {
-                Color::new(20, 130, 225, 255)  // Halo azul celeste
-            } else {
-                Color::new(12, 80, 190, 255)   // Borde exterior azul cósmico tenue
-            };
-            img.draw_pixel(x, y, c);
-        }
-    }
-    img
-}
