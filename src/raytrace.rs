@@ -78,8 +78,9 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     // Sombreado de billboard
     if let Some((_bb, sprite_color, u, _v)) = hit_billboard {
         let hit_point = origin + dir * closest_t;
-        // Luz ambiental base para que los personajes nunca queden completamente negros
-        let ambient = sprite_color * 0.22;
+        // Luz ambiental azul noche (estilo Chrono Trigger)
+        let ambient_color = Vector3::new(0.10, 0.14, 0.30);
+        let ambient = mul_vec3(sprite_color, ambient_color);
         let mut diffuse = Vector3::zero();
 
         for light in &scene.lights {
@@ -90,12 +91,17 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             }
             let light_dir = light_vec / light_dist;
 
-            let shadow_orig = hit_point - scene.camera_forward * 1e-3;
-            let in_shadow = scene.grid.is_occluded(&scene.cubes, shadow_orig, light_dir, light_dist);
+            let in_shadow = if light.casts_shadow {
+                let shadow_orig = hit_point - scene.camera_forward * 1e-3;
+                scene.grid.is_occluded(&scene.cubes, shadow_orig, light_dir, light_dist)
+            } else {
+                false
+            };
 
             if !in_shadow {
-                // Atenuación suave por distancia a la fogata
-                let attenuation = (light.intensity / (1.0 + 0.20 * light_dist + 0.04 * light_dist * light_dist)).max(0.0);
+                // Atenuación suave 1 / (1 + (d/r)^2)
+                let norm_dist = light_dist / light.radius;
+                let attenuation = (light.intensity / (1.0 + norm_dist * norm_dist)).max(0.0);
                 let normal = -scene.camera_forward;
                 let wrap = (normal.dot(light_dir) * 0.5 + 0.5).max(0.25);
 
@@ -180,11 +186,12 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             };
 
             let view_dir = -dir;
-            // Luz ambiental mínima
-            let ambient = base_color * 0.12;
+            // Luz ambiental azul noche multiplicada por el albedo de cada superficie
+            let ambient_color = Vector3::new(0.10, 0.14, 0.30);
+            let ambient = mul_vec3(base_color, ambient_color);
             let mut diffuse_specular = Vector3::zero();
 
-            // Shadow rays hacia cada luz de scene.lights
+            // Iluminación por luces (fogata con sombras + luz de relleno azul tenue sin sombras)
             for light in &scene.lights {
                 let light_vec = light.position - hit_point;
                 let light_dist = light_vec.length();
@@ -198,11 +205,17 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                     continue;
                 }
 
-                let shadow_orig = hit_point + normal * 1e-3;
-                let in_shadow = scene.grid.is_occluded(&scene.cubes, shadow_orig, light_dir, light_dist);
+                let in_shadow = if light.casts_shadow {
+                    let shadow_orig = hit_point + normal * 1e-3;
+                    scene.grid.is_occluded(&scene.cubes, shadow_orig, light_dir, light_dist)
+                } else {
+                    false
+                };
 
                 if !in_shadow {
-                    let attenuation = (light.intensity / (1.0 + 0.22 * light_dist)).max(0.0);
+                    // Atenuación suave 1 / (1 + (d/r)^2) para halo cálido y brillo en troncos
+                    let norm_dist = light_dist / light.radius;
+                    let attenuation = (light.intensity / (1.0 + norm_dist * norm_dist)).max(0.0);
                     let diffuse = mul_vec3(base_color, light.color) * (n_dot_l * attenuation);
 
                     let mut specular = Vector3::zero();

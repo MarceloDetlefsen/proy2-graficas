@@ -72,9 +72,10 @@ fn main() {
             Vector3::new(0.0, 1.0, 0.0),
         )
     } else {
+        // Encuadre inicial más elevado (~30-35 grados de inclinación), mirando a la fogata
         Camera::new(
-            Vector3::new(0.0, 5.8, 8.5),
-            Vector3::new(0.0, 3.2, -0.8),
+            Vector3::new(0.0, 7.8, 8.8),
+            Vector3::new(0.0, 2.5, -0.2),
             Vector3::new(0.0, 1.0, 0.0),
         )
     };

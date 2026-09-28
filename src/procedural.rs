@@ -10,11 +10,12 @@ pub struct TerrainPalette {
     pub sand: Material,
     pub snow: Material,
     pub water: Material,
+    pub straw: Material,
 }
 
 /// Genera un terreno de `width` x `depth` cubos con relieve procedural,
 /// columnas rellenas (sin huecos), bordes sólidos hasta y=0 estilo isla flotante,
-/// un claro plano para el campamento, un camino de tierra y un arroyo hundido con agua reflectiva.
+/// un claro plano para el campamento con círculo de paja, un camino de tierra y un arroyo hundido con agua reflectiva.
 pub fn generate_terrain(
     width: i32,
     depth: i32,
@@ -56,6 +57,8 @@ pub fn generate_terrain(
                 false
             };
 
+            let is_stream_rock = (x == 4 && z == 11) || (x == 11 && z == 14);
+
             if in_stream {
                 // El arroyo está hundido 1 bloque respecto al terreno/claro (y=1 vs y=2)
                 height_map[idx] = 1;
@@ -67,10 +70,18 @@ pub fn generate_terrain(
                 // Camino de tierra: a nivel del claro (y=2), sin textura de pasto
                 height_map[idx] = 2;
                 material_map[idx] = palette.dirt;
+            } else if dist_center <= 2.5 {
+                // Círculo de paja en radio ~2.5 alrededor de la fogata (estilo Chrono Trigger)
+                height_map[idx] = 2;
+                material_map[idx] = palette.straw;
             } else if dist_center <= 3.5 {
-                // Claro aplanado de ~5x5 alrededor de la fogata (y=2, superficie en Y=3.0)
+                // Claro aplanado alrededor de la fogata (y=2, superficie en Y=3.0)
                 height_map[idx] = 2;
                 material_map[idx] = palette.grass;
+            } else if is_stream_rock {
+                // Pocas rocas pequeñas sueltas cerca del arroyo
+                height_map[idx] = 2;
+                material_map[idx] = palette.stone;
             } else {
                 // Relieve con colinas suaves de 2-3 bloques de desnivel
                 let nx = cx as f64 * scale;
@@ -85,12 +96,8 @@ pub fn generate_terrain(
                 let y_clamped = y.clamp(2, max_height.max(5));
 
                 height_map[idx] = y_clamped;
-                if y_clamped >= 4 {
-                    // Picos y crestas de roca
-                    material_map[idx] = palette.stone;
-                } else {
-                    material_map[idx] = palette.grass;
-                }
+                // Las capas superiores de la periferia/colinas son SIEMPRE pasto (no piedra ni ladrillo)
+                material_map[idx] = palette.grass;
             }
         }
     }

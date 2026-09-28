@@ -66,6 +66,7 @@ impl Scene {
                 sand: mats.dirt, // sin playa en este bioma; se reusa dirt
                 snow: mats.stone, // sin nieve en este bioma; se reusa stone
                 water: mats.water,
+                straw: mats.straw,
             },
         );
         cubes.extend(terrain);
@@ -88,8 +89,11 @@ impl Scene {
             cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.5, mats.gem));
         }
 
-        // --- Luces ---
-        let lights = vec![Light::campfire(Vector3::new(0.0, ground_y + 0.8, 0.0))];
+        // --- Luces (máximo 2: fogata con sombras + luz de relleno azul tenue sin sombras) ---
+        let lights = vec![
+            Light::campfire(Vector3::new(0.0, ground_y + 0.8, 0.0)),
+            Light::sky_fill(Vector3::new(0.0, 15.0, 0.0)),
+        ];
 
         // --- Personajes (7 miembros de Chrono Trigger en círculo alrededor de la fogata) ---
         let party_defs: [(&str, f32); 7] = [
@@ -150,6 +154,7 @@ impl Scene {
             "assets/fire.png",
             "assets/gem.png",
             "assets/water.png",
+            "assets/straw.png",
             "assets/party/Chrono.png",
             "assets/party/Marle.png",
             "assets/party/Lucca.png",
