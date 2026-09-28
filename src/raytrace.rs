@@ -63,9 +63,11 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
         None => scene.skybox.sample(dir),
         Some(cube) => {
             let hit_point = origin + dir * closest_t;
-            let raw_normal = cube.normal_at(hit_point);
+            let (raw_normal, raw_tangent, raw_bitangent) = cube.tangent_frame_at(hit_point);
             let is_inside = dir.dot(raw_normal) > 0.0;
             let normal = if is_inside { -raw_normal } else { raw_normal };
+            let tangent = if is_inside { -raw_tangent } else { raw_tangent };
+            let bitangent = raw_bitangent;
 
             // Si el rayo viene desde adentro de un objeto transparente (saliendo del material)
             if is_inside && cube.material.transparency > 0.0 {
@@ -90,6 +92,23 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             }
 
             let (hit_u, hit_v) = hit_uv;
+
+            // Perturbación de normal mediante normal map (espacio tangente -> mundo)
+            let shading_normal = if let Some(norm_path) = cube.material.normal_map {
+                if scene.textures.has_texture(norm_path) {
+                    let sample = scene.textures.sample_uv(norm_path, hit_u, hit_v);
+                    let ts_normal = Vector3::new(
+                        sample.x * 2.0 - 1.0,
+                        sample.y * 2.0 - 1.0,
+                        sample.z * 2.0 - 1.0,
+                    );
+                    (tangent * ts_normal.x + bitangent * ts_normal.y + normal * ts_normal.z).normalized()
+                } else {
+                    normal
+                }
+            } else {
+                normal
+            };
 
             // Muestreo de color base con TextureManager::sample_uv usando las UV
             let base_color = if let Some(tex_path) = cube.material.texture {
@@ -117,7 +136,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                 }
                 let light_dir = light_vec / light_dist;
 
-                let n_dot_l = normal.dot(light_dir);
+                let n_dot_l = shading_normal.dot(light_dir);
                 if n_dot_l <= 0.0 {
                     continue;
                 }
@@ -144,7 +163,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                     let mut specular = Vector3::zero();
                     if cube.material.specular > 0.0 {
                         let half_dir = (light_dir + view_dir).normalized();
-                        let n_dot_h = normal.dot(half_dir).max(0.0);
+                        let n_dot_h = shading_normal.dot(half_dir).max(0.0);
                         let shininess = cube.material.specular.max(1.0);
                         let spec_factor = n_dot_h.powf(shininess);
                         let spec_strength = (cube.material.specular / 60.0).clamp(0.04, 0.6);
@@ -170,7 +189,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                     }
                     None => {
                         // Reflexión interna total
-                        let refl_dir = reflect(&dir, &normal);
+                        let refl_dir = reflect(&dir, &shading_normal);
                         let refl_orig = hit_point + normal * 1e-3;
                         trace_ray(scene, refl_orig, refl_dir, depth + 1)
                     }
@@ -180,7 +199,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             }
 
             if cube.material.reflectivity > 0.0 && depth < MAX_DEPTH {
-                let refl_dir = reflect(&dir, &normal);
+                let refl_dir = reflect(&dir, &shading_normal);
                 let refl_orig = hit_point + normal * 1e-3;
                 let refl_color = trace_ray(scene, refl_orig, refl_dir, depth + 1);
                 final_color = final_color * (1.0 - cube.material.reflectivity)

@@ -124,9 +124,10 @@ impl Cube {
         (u.clamp(0.0, 1.0), v.clamp(0.0, 1.0))
     }
 
-    /// Normal de la cara golpeada en el punto `hit_point`.
-    /// Necesaria para reflexión, refracción y mapas normales.
-    pub fn normal_at(&self, hit_point: Vector3) -> Vector3 {
+    /// Devuelve la base ortonormal de la cara golpeada: (normal, tangent, bitangent)
+    /// donde tangent es la dirección en la que crece U, y bitangent donde crece V,
+    /// coincidiendo exactamente con el mapeo uv_at().
+    pub fn tangent_frame_at(&self, hit_point: Vector3) -> (Vector3, Vector3, Vector3) {
         let d_min_x = (hit_point.x - self.min.x).abs();
         let d_max_x = (hit_point.x - self.max.x).abs();
         let d_min_y = (hit_point.y - self.min.y).abs();
@@ -135,14 +136,28 @@ impl Cube {
         let d_max_z = (hit_point.z - self.max.z).abs();
 
         let mut min_d = d_min_x;
-        let mut normal = Vector3::new(-1.0, 0.0, 0.0);
+        let mut face = 0; // 0: -X, 1: +X, 2: -Y, 3: +Y, 4: -Z, 5: +Z
 
-        if d_max_x < min_d { min_d = d_max_x; normal = Vector3::new(1.0, 0.0, 0.0); }
-        if d_min_y < min_d { min_d = d_min_y; normal = Vector3::new(0.0, -1.0, 0.0); }
-        if d_max_y < min_d { min_d = d_max_y; normal = Vector3::new(0.0, 1.0, 0.0); }
-        if d_min_z < min_d { min_d = d_min_z; normal = Vector3::new(0.0, 0.0, -1.0); }
-        if d_max_z < min_d { normal = Vector3::new(0.0, 0.0, 1.0); }
+        if d_max_x < min_d { min_d = d_max_x; face = 1; }
+        if d_min_y < min_d { min_d = d_min_y; face = 2; }
+        if d_max_y < min_d { min_d = d_max_y; face = 3; }
+        if d_min_z < min_d { min_d = d_min_z; face = 4; }
+        if d_max_z < min_d { face = 5; }
 
-        normal
+        match face {
+            0 => (Vector3::new(-1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0), Vector3::new(0.0, -1.0, 0.0)),
+            1 => (Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, -1.0), Vector3::new(0.0, -1.0, 0.0)),
+            2 => (Vector3::new(0.0, -1.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, -1.0)),
+            3 => (Vector3::new(0.0, 1.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0)),
+            4 => (Vector3::new(0.0, 0.0, -1.0), Vector3::new(-1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),
+            _ => (Vector3::new(0.0, 0.0, 1.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, -1.0, 0.0)),
+        }
+    }
+
+    /// Normal de la cara golpeada en el punto `hit_point`.
+    /// Necesaria para reflexión, refracción y mapas normales.
+    #[allow(dead_code)]
+    pub fn normal_at(&self, hit_point: Vector3) -> Vector3 {
+        self.tangent_frame_at(hit_point).0
     }
 }
