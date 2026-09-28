@@ -164,16 +164,12 @@ fn get_orbit_camera(orbit_time: f32) -> (Vector3, Vector3) {
     let period = 24.0f32;
     let theta = (orbit_time % period) / period * std::f32::consts::PI * 2.0;
 
-    // Distancia oscilando suavemente entre 9.0 y 13.5
-    let d_min = 9.0f32;
-    let d_max = 13.5f32;
-    let dist = (d_min + d_max) * 0.5 + ((d_max - d_min) * 0.5) * (theta * 2.0).sin();
+    // Distancia fija constante (sin zoom-ins ni zoom-outs molestos)
+    let dist = 11.0f32;
 
-    // Elevación entre 22° y 36° (mínimo 22 grados requerido)
+    // Elevación fija constante (rotación pura 360 grados, cumpliendo mínimo 22 grados)
     let deg2rad = std::f32::consts::PI / 180.0;
-    let p_min = 22.0 * deg2rad;
-    let p_max = 36.0 * deg2rad;
-    let pitch = (p_min + p_max) * 0.5 + ((p_max - p_min) * 0.5) * (theta + std::f32::consts::FRAC_PI_4).sin();
+    let pitch = 26.0 * deg2rad;
 
     // Arranca en el azimut de la tecla 1 (yaw = +PI/2, mirando de +Z hacia -Z) y da la vuelta completa de 360°
     let yaw = theta + std::f32::consts::FRAC_PI_2;
@@ -364,7 +360,6 @@ fn main() {
             let t = f as f32 / num_frames as f32 * 24.0;
             let (orbit_eye, orbit_target) = get_orbit_camera(t);
             camera.set_view(orbit_eye, orbit_target);
-            camera.resolve_collision(&scene.cubes);
             camera.update_basis_vectors();
 
             let cam_dist = (camera.eye - camera.center).length();
@@ -457,11 +452,11 @@ fn main() {
             rendered_fullres = false;
         }
 
-        // --- Auto-órbita con tecla R: 360° en 24 s, resolución completa ---
+        // --- Auto-órbita con tecla R: 360° en 24 s ---
         if rl.is_key_pressed(KeyboardKey::KEY_R) {
             auto_orbit = !auto_orbit;
             transition = None;
-            println!("Auto-órbita: {}", if auto_orbit { "ACTIVADA (resolución completa)" } else { "DESACTIVADA" });
+            println!("Auto-órbita: {}", if auto_orbit { "ACTIVADA" } else { "DESACTIVADA" });
         }
 
         // --- Presets de tomas: Teclas 1 a 9 y F1 a F4 ---
@@ -575,7 +570,6 @@ fn main() {
             orbit_time += dt;
             let (orbit_eye, orbit_target) = get_orbit_camera(orbit_time);
             camera.set_view(orbit_eye, orbit_target);
-            camera.resolve_collision(&scene.cubes);
             camera.update_basis_vectors();
             let cam_dist = (camera.eye - camera.center).length();
             scene.tree_cutaway_dist = Some(cam_dist - 1.5);
@@ -592,10 +586,10 @@ fn main() {
         }
 
         // --- Render progresivo ---
-        // Mientras la cámara se mueve manualmente: render a 1/2 de resolución.
-        // Al pasar >= 150 ms sin movimiento, o en auto-órbita: render a resolución completa (800x600).
-        let should_render_moving = ((is_moving && !auto_orbit) && last_camera_move.elapsed() < std::time::Duration::from_millis(150)) || (moving_mode && !screenshot_saved);
-        let should_render_settled = (needs_fullres && last_camera_move.elapsed() >= std::time::Duration::from_millis(150)) || auto_orbit;
+        // Mientras la cámara se mueve (manualmente, en transición o en auto-órbita): render a 1/2 de resolución (60 FPS fluidos).
+        // Al pasar >= 150 ms sin movimiento: render a resolución completa (800x600).
+        let should_render_moving = (is_moving && last_camera_move.elapsed() < std::time::Duration::from_millis(150)) || (moving_mode && !screenshot_saved);
+        let should_render_settled = needs_fullres && last_camera_move.elapsed() >= std::time::Duration::from_millis(150);
 
         if should_render_moving && (camera.is_changed() || !screenshot_saved) {
             scene.camera_forward = camera.forward;
@@ -604,7 +598,12 @@ fn main() {
             let start = std::time::Instant::now();
             render(&scene, &camera, &mut framebuffer, 2);
             let elapsed = start.elapsed();
-            println!("Render (movimiento 1/2 res): {:.2} ms (cubos: {})", elapsed.as_secs_f64() * 1000.0, scene.cubes.len());
+            if let Some(ref m) = music {
+                m.update_stream();
+            }
+            if moving_mode {
+                println!("Render (movimiento 1/2 res): {:.2} ms (cubos: {})", elapsed.as_secs_f64() * 1000.0, scene.cubes.len());
+            }
             let _ = render_texture.update_texture(framebuffer_as_bytes(&framebuffer));
 
             if moving_mode && !screenshot_saved {
@@ -627,6 +626,9 @@ fn main() {
             let start = std::time::Instant::now();
             render(&scene, &camera, &mut framebuffer, 1);
             let elapsed = start.elapsed();
+            if let Some(ref m) = music {
+                m.update_stream();
+            }
             let total_billboards = scene.billboards.len() + scene.grass_billboards.len() + scene.smoke_billboards.len() + scene.undergrowth_billboards.len();
             println!("Render (reposo full res): {:.2} ms (cubos: {}, billboards: {}, ground_sprites: {})",
                 elapsed.as_secs_f64() * 1000.0, scene.cubes.len(), total_billboards, scene.ground_sprites.len());
@@ -682,6 +684,9 @@ fn main() {
         }
 
         // Presentación en GPU mediante Texture2D (un solo draw call)
+        if let Some(ref m) = music {
+            m.update_stream();
+        }
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
         d.draw_texture(&render_texture, 0, 0, Color::WHITE);
@@ -1052,7 +1057,7 @@ fn run_check_layout(scene: &Scene) {
             let t = f as f32;
             let (orbit_eye, orbit_target) = get_orbit_camera(t);
             let mut cam = Camera::new(orbit_eye, orbit_target, Vector3::new(0.0, 1.0, 0.0));
-            cam.resolve_collision(&scene.cubes);
+            // En órbita circular pura no se resuelve colisión contra copas (se usa cutaway)
             cam.update_basis_vectors();
             let cam_dist = (cam.eye - cam.center).length();
             let cutaway = Some(cam_dist - 1.5);
