@@ -29,16 +29,43 @@ fn main() {
     // 1. Asegurar que todos los assets requeridos existan en disco
     texture_gen::generate_all_assets();
 
+    // Inicializar audio y reproducir música ambiental de fondo (Secret of the Forest)
+    let audio = RaylibAudio::init_audio_device();
+    let music = match audio {
+        Ok(ref aud) => match aud.new_music("assets/audio/Secret of the Forest.mp3") {
+            Ok(m) => {
+                m.play_stream();
+                println!("Música iniciada: Chrono Trigger - Secret of the Forest");
+                Some(m)
+            }
+            Err(e) => {
+                eprintln!("Aviso: no se pudo cargar la pista de audio: {}", e);
+                None
+            }
+        },
+        Err(e) => {
+            eprintln!("Aviso: no se pudo inicializar dispositivo de audio: {}", e);
+            None
+        }
+    };
+
     let args: Vec<String> = std::env::args().collect();
     let headless = args.iter().any(|a| a == "--screenshot");
     let rotated = args.iter().any(|a| a == "--rotated");
+    let elevated = args.iter().any(|a| a == "--elevated");
     let moving_mode = args.iter().any(|a| a == "--moving");
 
     // 2. Crear la escena y cargar texturas en CPU
     let mut scene = Scene::campfire_diorama();
     scene.load_textures(&mut rl, &thread);
 
-    let mut camera = if rotated {
+    let mut camera = if elevated {
+        Camera::new(
+            Vector3::new(9.0, 10.0, 4.5),
+            Vector3::new(0.0, 2.0, 0.5),
+            Vector3::new(0.0, 1.0, 0.0),
+        )
+    } else if rotated {
         Camera::new(
             Vector3::new(8.5, 5.8, 0.0),
             Vector3::new(-0.8, 3.2, 0.0),
@@ -67,6 +94,10 @@ fn main() {
     let mut rendered_fullres = false;
 
     while !rl.window_should_close() {
+        if let Some(ref m) = music {
+            m.update_stream();
+        }
+
         // --- Toggle de depuración de mapas normales: tecla N ---
         if rl.is_key_pressed(KeyboardKey::KEY_N) {
             scene.use_normal_maps = !scene.use_normal_maps;
@@ -157,7 +188,13 @@ fn main() {
                         img.draw_pixel(x, y, framebuffer[(y * WIDTH + x) as usize]);
                     }
                 }
-                let out_file = if rotated { "screenshot_rotated.png" } else { "screenshot.png" };
+                let out_file = if elevated {
+                    "screenshot_elevated.png"
+                } else if rotated {
+                    "screenshot_rotated.png"
+                } else {
+                    "screenshot.png"
+                };
                 img.export_image(out_file);
                 screenshot_saved = true;
                 break;
