@@ -52,7 +52,9 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     let mut hit_ground_sprite: Option<(&crate::billboard::GroundSprite, Vector3, f32, f32)> = None;
 
     // 1. Intersección con cubos acelerada mediante Grid 3D uniforme y DDA
-    if let Some((t, cube_idx, u, v)) = scene.grid.intersect_closest(&scene.cubes, origin, dir) {
+    // En rayos primarios (depth == 0), se aplica cutaway de árboles si tree_cutaway_dist está activo
+    let cutaway = if depth == 0 { scene.tree_cutaway_dist } else { None };
+    if let Some((t, cube_idx, u, v)) = scene.grid.intersect_closest(&scene.cubes, origin, dir, cutaway) {
         if t < closest_t && t > 1e-4 {
             closest_t = t;
             hit_cube = Some(&scene.cubes[cube_idx]);
@@ -63,21 +65,17 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     }
 
 #[inline(always)]
-pub fn ray_intersects_aabb(origin: Vector3, dir: Vector3, min: Vector3, max: Vector3, max_t: f32) -> bool {
-    let inv_x = 1.0 / dir.x;
-    let inv_y = 1.0 / dir.y;
-    let inv_z = 1.0 / dir.z;
-
-    let t1_x = (min.x - origin.x) * inv_x;
-    let t2_x = (max.x - origin.x) * inv_x;
+pub fn fast_ray_aabb(origin: Vector3, inv_dir: Vector3, min: Vector3, max: Vector3, max_t: f32) -> bool {
+    let t1_x = (min.x - origin.x) * inv_dir.x;
+    let t2_x = (max.x - origin.x) * inv_dir.x;
     let (tmin_x, tmax_x) = if t1_x < t2_x { (t1_x, t2_x) } else { (t2_x, t1_x) };
 
-    let t1_y = (min.y - origin.y) * inv_y;
-    let t2_y = (max.y - origin.y) * inv_y;
+    let t1_y = (min.y - origin.y) * inv_dir.y;
+    let t2_y = (max.y - origin.y) * inv_dir.y;
     let (tmin_y, tmax_y) = if t1_y < t2_y { (t1_y, t2_y) } else { (t2_y, t1_y) };
 
-    let t1_z = (min.z - origin.z) * inv_z;
-    let t2_z = (max.z - origin.z) * inv_z;
+    let t1_z = (min.z - origin.z) * inv_dir.z;
+    let t2_z = (max.z - origin.z) * inv_dir.z;
     let (tmin_z, tmax_z) = if t1_z < t2_z { (t1_z, t2_z) } else { (t2_z, t1_z) };
 
     let t_enter = tmin_x.max(tmin_y).max(tmin_z).max(0.0);
@@ -86,22 +84,39 @@ pub fn ray_intersects_aabb(origin: Vector3, dir: Vector3, min: Vector3, max: Vec
     t_enter <= t_exit
 }
 
+    let inv_dir = Vector3::new(1.0 / dir.x, 1.0 / dir.y, 1.0 / dir.z);
+
     // 2. Intersección con billboards (sprites planos orientados a cámara)
-    // a) Personajes de la party (7 billboards)
-    for bb in &scene.billboards {
-        if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
-            let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
-            if alpha >= 0.5 {
-                closest_t = t;
-                hit_billboard = Some((bb, color, u, v));
-                hit_ground_sprite = None;
-                hit_cube = None;
+    // a) Personajes de la party + Gate + Carpa: acelerados por AABBs particionados izq/der
+    if fast_ray_aabb(origin, inv_dir, scene.party_left_aabb.0, scene.party_left_aabb.1, closest_t) {
+        for bb in &scene.party_left {
+            if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
+                let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                if alpha >= 0.5 {
+                    closest_t = t;
+                    hit_billboard = Some((bb, color, u, v));
+                    hit_ground_sprite = None;
+                    hit_cube = None;
+                }
+            }
+        }
+    }
+    if fast_ray_aabb(origin, inv_dir, scene.party_right_aabb.0, scene.party_right_aabb.1, closest_t) {
+        for bb in &scene.party_right {
+            if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
+                let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                if alpha >= 0.5 {
+                    closest_t = t;
+                    hit_billboard = Some((bb, color, u, v));
+                    hit_ground_sprite = None;
+                    hit_cube = None;
+                }
             }
         }
     }
 
     // b) Humo (11 puffs): probado primero contra su AABB envolvente único
-    if ray_intersects_aabb(origin, dir, scene.smoke_aabb.0, scene.smoke_aabb.1, closest_t) {
+    if fast_ray_aabb(origin, inv_dir, scene.smoke_aabb.0, scene.smoke_aabb.1, closest_t) {
         for bb in &scene.smoke_billboards {
             if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
                 let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
@@ -115,16 +130,59 @@ pub fn ray_intersects_aabb(origin: Vector3, dir: Vector3, min: Vector3, max: Vec
         }
     }
 
-    // c) Mechones de pasto (~20): salteados en rayos secundarios (depth > 0) y acelerados por AABB envolvente único
-    if depth == 0 && ray_intersects_aabb(origin, dir, scene.grass_aabb.0, scene.grass_aabb.1, closest_t) {
-        for bb in &scene.grass_billboards {
-            if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
-                let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
-                if alpha >= 0.5 {
-                    closest_t = t;
-                    hit_billboard = Some((bb, color, u, v));
-                    hit_ground_sprite = None;
-                    hit_cube = None;
+    // c) Mechones de pasto: salteados en depth > 0 y divididos en cuadrantes (izq/der)
+    if depth == 0 {
+        if fast_ray_aabb(origin, inv_dir, scene.grass_left_aabb.0, scene.grass_left_aabb.1, closest_t) {
+            for bb in &scene.grass_left {
+                if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
+                    let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                    if alpha >= 0.5 {
+                        closest_t = t;
+                        hit_billboard = Some((bb, color, u, v));
+                        hit_ground_sprite = None;
+                        hit_cube = None;
+                    }
+                }
+            }
+        }
+        if fast_ray_aabb(origin, inv_dir, scene.grass_right_aabb.0, scene.grass_right_aabb.1, closest_t) {
+            for bb in &scene.grass_right {
+                if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
+                    let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                    if alpha >= 0.5 {
+                        closest_t = t;
+                        hit_billboard = Some((bb, color, u, v));
+                        hit_ground_sprite = None;
+                        hit_cube = None;
+                    }
+                }
+            }
+        }
+
+        // d) Sotobosque (helechos y hongos): divididos en cuadrantes (izq/der)
+        if fast_ray_aabb(origin, inv_dir, scene.undergrowth_left_aabb.0, scene.undergrowth_left_aabb.1, closest_t) {
+            for bb in &scene.undergrowth_left {
+                if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
+                    let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                    if alpha >= 0.5 {
+                        closest_t = t;
+                        hit_billboard = Some((bb, color, u, v));
+                        hit_ground_sprite = None;
+                        hit_cube = None;
+                    }
+                }
+            }
+        }
+        if fast_ray_aabb(origin, inv_dir, scene.undergrowth_right_aabb.0, scene.undergrowth_right_aabb.1, closest_t) {
+            for bb in &scene.undergrowth_right {
+                if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
+                    let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                    if alpha >= 0.5 {
+                        closest_t = t;
+                        hit_billboard = Some((bb, color, u, v));
+                        hit_ground_sprite = None;
+                        hit_cube = None;
+                    }
                 }
             }
         }
@@ -200,6 +258,11 @@ pub fn ray_intersects_aabb(origin: Vector3, dir: Vector3, min: Vector3, max: Vec
         } else {
             (sprite_color, bb.emission)
         };
+
+        if bb.texture.contains("gate_vortex") || bb.texture.contains("gate_glint") {
+            // Portal / destello cósmico: autoiluminado celestial puro, sin teñido de fogata ni sombras
+            return effective_sprite_color * 1.05 + emission;
+        }
 
         // Luz ambiental azul noche (estilo Chrono Trigger, +20% para leer relieve)
         let ambient_color = Vector3::new(0.12, 0.17, 0.36);
@@ -340,7 +403,7 @@ pub fn ray_intersects_aabb(origin: Vector3, dir: Vector3, min: Vector3, max: Vec
                     let geom_ndotl = normal.dot(light_dir);
                     let raw_ndotl = shading_normal.dot(light_dir);
                     // Evitar colapso a negro en las hendiduras: piso mínimo proporcional a geom_ndotl
-                    let n_dot_l = raw_ndotl.max(geom_ndotl * 0.28);
+                    let n_dot_l = raw_ndotl.max(geom_ndotl * 0.45);
 
                     // Atenuación suave 1 / (1 + (d/r)^2) para halo cálido y brillo en troncos
                     let norm_dist = light_dist / light.radius;
@@ -429,7 +492,29 @@ pub fn ray_intersects_aabb(origin: Vector3, dir: Vector3, min: Vector3, max: Vec
                     + refl_color * cube.material.reflectivity;
             }
 
-            final_color + cube.material.emission
+            let mut out_color = final_color + cube.material.emission;
+
+            // 7b. Brillo cálido sutil en la cara de los árboles que mira al fuego
+            if cube.is_tree {
+                let to_fire = (Vector3::new(0.0, 4.3, 0.0) - hit_point).normalized();
+                let n_dot_f = normal.dot(to_fire).max(0.0);
+                if n_dot_f > 0.0 {
+                    out_color += Vector3::new(0.10, 0.04, 0.0) * n_dot_f;
+                }
+            }
+
+            // 4. Niebla de distancia: en rayos primarios sobre cubos de terreno y árboles no emisivos
+            // Mezclar hacia (0.03, 0.05, 0.12) con factor de 0 a 0.55 entre d = 9 y d = 22
+            if depth == 0 && cube.material.emission.length() < 1e-4 {
+                let dist = closest_t;
+                if dist > 9.0 {
+                    let fog_factor = ((dist - 9.0) / (22.0 - 9.0)).clamp(0.0, 1.0) * 0.55;
+                    let fog_color = Vector3::new(0.03, 0.05, 0.12);
+                    out_color = out_color * (1.0 - fog_factor) + fog_color * fog_factor;
+                }
+            }
+
+            out_color
         }
     }
 }
