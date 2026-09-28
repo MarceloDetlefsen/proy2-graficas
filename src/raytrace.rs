@@ -33,11 +33,13 @@ pub fn reflect(incident: &Vector3, normal: &Vector3) -> Vector3 {
     *incident - *normal * 2.0 * incident.dot(*normal)
 }
 
+fn mul_vec3(a: Vector3, b: Vector3) -> Vector3 {
+    Vector3::new(a.x * b.x, a.y * b.y, a.z * b.z)
+}
+
 const MAX_DEPTH: u32 = 3;
 
-/// Punto de entrada del raytracer para un solo rayo. Por ahora resuelve
-/// intersección con cubos + skybox; sombras/reflexión/refracción recursiva
-/// y billboards se agregan en el siguiente paso.
+/// Punto de entrada del raytracer para un solo rayo.
 pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Vector3 {
     if depth > MAX_DEPTH {
         return Vector3::zero();
@@ -45,12 +47,14 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
 
     let mut closest_t = f32::MAX;
     let mut hit_cube = None;
+    let mut hit_uv = (0.0, 0.0);
 
     for cube in &scene.cubes {
-        if let Some((t, _, _)) = cube.intersect(origin, dir) {
+        if let Some((t, u, v)) = cube.intersect(origin, dir) {
             if t < closest_t {
                 closest_t = t;
                 hit_cube = Some(cube);
+                hit_uv = (u, v);
             }
         }
     }
@@ -58,11 +62,76 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     match hit_cube {
         None => scene.skybox.sample(dir),
         Some(cube) => {
-            // TODO: aplicar textura via UV, mapa normal, sombras hacia scene.lights,
-            // mezclar con reflect()/refract() según material.reflectivity / transparency,
-            // y sumar material.emission si es emisivo.
-            let _hit_point = origin + dir * closest_t;
-            cube.material.albedo
+            // 1. Normal en el punto de impacto
+            let hit_point = origin + dir * closest_t;
+            let raw_normal = cube.normal_at(hit_point);
+            let normal = if dir.dot(raw_normal) > 0.0 { -raw_normal } else { raw_normal };
+            let (hit_u, hit_v) = hit_uv;
+
+            // 2. Muestreo de color base con TextureManager::sample_uv usando las UV
+            let base_color = if let Some(tex_path) = cube.material.texture {
+                let sampled = scene.textures.sample_uv(tex_path, hit_u, hit_v);
+                if scene.textures.has_texture(tex_path) {
+                    sampled
+                } else {
+                    cube.material.albedo
+                }
+            } else {
+                cube.material.albedo
+            };
+
+            let view_dir = -dir;
+            // 2. Luz ambiental mínima (0.08 del albedo base) para que nunca quede 100% negra
+            let ambient = base_color * 0.08;
+            let mut diffuse_specular = Vector3::zero();
+
+            // 3. Shadow rays hacia cada luz de scene.lights
+            for light in &scene.lights {
+                let light_vec = light.position - hit_point;
+                let light_dist = light_vec.length();
+                if light_dist < 1e-4 {
+                    continue;
+                }
+                let light_dir = light_vec / light_dist;
+
+                // Sombra propia: si la normal apunta en dirección opuesta a la luz, no aporta difuso/especular
+                let n_dot_l = normal.dot(light_dir);
+                if n_dot_l <= 0.0 {
+                    continue;
+                }
+
+                // 1. Offset de 1e-3 a lo largo de la normal para evitar autointersección (shadow acne)
+                let shadow_orig = hit_point + normal * 1e-3;
+                let mut in_shadow = false;
+                for occluder in &scene.cubes {
+                    if let Some((t, _, _)) = occluder.intersect(shadow_orig, light_dir) {
+                        if t > 1e-3 && t < (light_dist - 1e-3) {
+                            in_shadow = true;
+                            break;
+                        }
+                    }
+                }
+
+                // 3 & 4. Combinar difuso (Lambert, N·L) + especular (Blinn-Phong) con atenuación lineal
+                if !in_shadow {
+                    let attenuation = (light.intensity / (1.0 + 0.15 * light_dist)).max(0.0);
+
+                    let diffuse = mul_vec3(base_color, light.color) * (n_dot_l * attenuation);
+
+                    let mut specular = Vector3::zero();
+                    if cube.material.specular > 0.0 {
+                        let half_dir = (light_dir + view_dir).normalized();
+                        let n_dot_h = normal.dot(half_dir).max(0.0);
+                        let spec_factor = n_dot_h.powf(cube.material.specular);
+                        specular = light.color * (spec_factor * attenuation);
+                    }
+
+                    diffuse_specular += diffuse + specular;
+                }
+            }
+
+            // 4. Sumar material.emission SIEMPRE al resultado final
+            ambient + diffuse_specular + cube.material.emission
         }
     }
 }

@@ -11,6 +11,7 @@ pub struct Scene {
     pub billboards: Vec<Billboard>,
     pub lights: Vec<Light>,
     pub skybox: Skybox,
+    pub textures: crate::texture::TextureManager,
 }
 
 impl Scene {
@@ -38,29 +39,30 @@ impl Scene {
             cubes.extend(Self::tree(Vector3::new(x, 1.0, z), &mats));
         }
 
+        let ground_y = 3.0;
         // --- Círculo de piedras + fogata al centro (emisivo) ---
         for &(x, z) in &[(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
-            cubes.push(Cube::new(Vector3::new(x, 1.0, z), 0.5, mats.stone));
+            cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.5, mats.stone));
         }
-        cubes.push(Cube::new(Vector3::new(-0.25, 1.0, -0.25), 0.5, mats.campfire));
+        cubes.push(Cube::new(Vector3::new(-0.25, ground_y, -0.25), 0.5, mats.campfire));
 
         // --- Cristales/gemas tirados cerca de la fogata (refracción + reflexión) ---
         for &(x, z) in &[(-2.0, 0.5), (2.2, -0.8), (1.5, 1.8)] {
-            cubes.push(Cube::new(Vector3::new(x, 1.0, z), 0.3, mats.gem));
+            cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.3, mats.gem));
         }
 
         // --- Charco de agua (reflexión) ---
-        cubes.push(Cube::new(Vector3::new(4.0, 0.95, 3.0), 2.0, mats.water));
+        cubes.push(Cube::new(Vector3::new(4.0, ground_y - 0.05, 3.0), 2.0, mats.water));
 
         // --- Luces ---
-        let lights = vec![Light::campfire(Vector3::new(0.0, 1.6, 0.0))];
+        let lights = vec![Light::campfire(Vector3::new(0.0, ground_y + 0.8, 0.0))];
 
         // --- Personajes (billboards con sprites pixel-art) ---
         let billboards = vec![
-            Billboard::new(Vector3::new(-0.8, 1.5, -0.8), 1.0, 1.4, "assets/party/hero.png"),
-            Billboard::new(Vector3::new(0.8, 1.5, -0.8), 1.0, 1.4, "assets/party/mage.png"),
-            Billboard::new(Vector3::new(-0.8, 1.5, 0.8), 1.0, 1.4, "assets/party/warrior.png"),
-            Billboard::new(Vector3::new(0.8, 1.5, 0.8), 1.0, 1.4, "assets/party/rogue.png"),
+            Billboard::new(Vector3::new(-0.8, ground_y + 0.5, -0.8), 1.0, 1.4, "assets/party/hero.png"),
+            Billboard::new(Vector3::new(0.8, ground_y + 0.5, -0.8), 1.0, 1.4, "assets/party/mage.png"),
+            Billboard::new(Vector3::new(-0.8, ground_y + 0.5, 0.8), 1.0, 1.4, "assets/party/warrior.png"),
+            Billboard::new(Vector3::new(0.8, ground_y + 0.5, 0.8), 1.0, 1.4, "assets/party/rogue.png"),
         ];
 
         Scene {
@@ -68,6 +70,7 @@ impl Scene {
             billboards,
             lights,
             skybox: Skybox::night(),
+            textures: crate::texture::TextureManager::new(),
         }
     }
 

@@ -39,6 +39,23 @@ impl TextureManager {
         Self::default()
     }
 
+    pub fn has_texture(&self, path: &str) -> bool {
+        self.cpu_textures.contains_key(path)
+    }
+
+    pub fn load_cpu_texture(&mut self, path: &str) -> bool {
+        if self.cpu_textures.contains_key(path) {
+            return true;
+        }
+        if let Ok(image) = Image::load_image(path) {
+            let cpu_texture = CpuTexture::from_image(&image);
+            self.cpu_textures.insert(path.to_string(), cpu_texture);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn load_texture(&mut self, rl: &mut RaylibHandle, thread: &RaylibThread, path: &str) {
         if self.textures.contains_key(path) {
             return;
