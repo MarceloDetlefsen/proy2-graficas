@@ -94,24 +94,22 @@ impl TextureManager {
     }
 
     /// Igual que get_pixel_color pero recibe coordenadas UV normalizadas [0,1],
-    /// que es lo que produce Cube/Billboard al calcular la intersección.
+    /// con muestreo de vecino más cercano para conservar el aspecto pixel-art.
     pub fn sample_uv(&self, path: &str, u: f32, v: f32) -> Vector3 {
-        if let Some(cpu_texture) = self.cpu_textures.get(path) {
-            let tx = ((u.clamp(0.0, 1.0)) * (cpu_texture.width - 1) as f32) as u32;
-            let ty = ((v.clamp(0.0, 1.0)) * (cpu_texture.height - 1) as f32) as u32;
-            self.get_pixel_color(path, tx, ty)
-        } else {
-            Vector3::one()
-        }
+        self.sample_uv_rgba(path, u, v).0
     }
 
-    /// Muestra color RGB y canal Alfa [0, 1] en coordenadas UV.
-    pub fn sample_rgba(&self, path: &str, u: f32, v: f32) -> (Vector3, f32) {
+    /// Muestra color RGB y canal Alfa [0, 1] en coordenadas UV usando vecino más cercano (nearest-neighbor)
+    /// sin interpolación para conservar la estética pixel-art nítida.
+    pub fn sample_uv_rgba(&self, path: &str, u: f32, v: f32) -> (Vector3, f32) {
         if let Some(cpu_texture) = self.cpu_textures.get(path) {
-            let tx = ((u.clamp(0.0, 1.0)) * (cpu_texture.width - 1) as f32) as u32;
-            let ty = ((v.clamp(0.0, 1.0)) * (cpu_texture.height - 1) as f32) as u32;
-            let x = tx.min(cpu_texture.width as u32 - 1) as i32;
-            let y = ty.min(cpu_texture.height as u32 - 1) as i32;
+            let u_clamped = u.clamp(0.0, 0.99999);
+            let v_clamped = v.clamp(0.0, 0.99999);
+            let x = (u_clamped * cpu_texture.width as f32).floor() as i32;
+            let y = (v_clamped * cpu_texture.height as f32).floor() as i32;
+
+            let x = x.clamp(0, cpu_texture.width - 1);
+            let y = y.clamp(0, cpu_texture.height - 1);
             let idx = (y * cpu_texture.width + x) as usize;
             let rgb = cpu_texture.pixels.get(idx).copied().unwrap_or(Vector3::one());
             let alpha = cpu_texture.alphas.get(idx).copied().unwrap_or(1.0);
@@ -119,6 +117,11 @@ impl TextureManager {
         } else {
             (Vector3::one(), 1.0)
         }
+    }
+
+    /// Alias retrocompatible de sample_uv_rgba
+    pub fn sample_rgba(&self, path: &str, u: f32, v: f32) -> (Vector3, f32) {
+        self.sample_uv_rgba(path, u, v)
     }
 
     pub fn get_texture(&self, path: &str) -> Option<&Texture2D> {
