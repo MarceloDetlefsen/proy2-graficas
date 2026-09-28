@@ -101,6 +101,8 @@ pub struct SceneMaterials {
     pub tuft: Material,      // mechón de pasto verde-amarillo
     pub planks: Material,    // puente de tablones de madera
     pub gem: Material,       // cristal -> refracción + reflexión
+    pub gem_cyan: Material,  // cristal cian-azulado saturado
+    pub gem_magenta: Material,// cristal magenta-violeta saturado
     pub water: Material,     // charco -> reflexión (+ refracción opcional)
     pub straw: Material,     // círculo de paja alrededor de la fogata
 }
@@ -169,6 +171,16 @@ impl SceneMaterials {
                 .with_texture("assets/gem.png")
                 .with_reflectivity(0.15)
                 .with_refraction(0.85, 1.55),
+
+            gem_cyan: Material::new(Vector3::new(0.15, 0.75, 1.0), 80.0)
+                .with_texture("assets/gem_cyan.png")
+                .with_reflectivity(0.18)
+                .with_refraction(0.60, 1.50),
+
+            gem_magenta: Material::new(Vector3::new(0.95, 0.18, 0.85), 80.0)
+                .with_texture("assets/gem_magenta.png")
+                .with_reflectivity(0.18)
+                .with_refraction(0.60, 1.50),
 
             water: Material::new(Vector3::new(0.15, 0.25, 0.35), 40.0)
                 .with_texture("assets/water.png")

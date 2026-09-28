@@ -62,16 +62,70 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
         }
     }
 
+#[inline(always)]
+pub fn ray_intersects_aabb(origin: Vector3, dir: Vector3, min: Vector3, max: Vector3, max_t: f32) -> bool {
+    let inv_x = 1.0 / dir.x;
+    let inv_y = 1.0 / dir.y;
+    let inv_z = 1.0 / dir.z;
+
+    let t1_x = (min.x - origin.x) * inv_x;
+    let t2_x = (max.x - origin.x) * inv_x;
+    let (tmin_x, tmax_x) = if t1_x < t2_x { (t1_x, t2_x) } else { (t2_x, t1_x) };
+
+    let t1_y = (min.y - origin.y) * inv_y;
+    let t2_y = (max.y - origin.y) * inv_y;
+    let (tmin_y, tmax_y) = if t1_y < t2_y { (t1_y, t2_y) } else { (t2_y, t1_y) };
+
+    let t1_z = (min.z - origin.z) * inv_z;
+    let t2_z = (max.z - origin.z) * inv_z;
+    let (tmin_z, tmax_z) = if t1_z < t2_z { (t1_z, t2_z) } else { (t2_z, t1_z) };
+
+    let t_enter = tmin_x.max(tmin_y).max(tmin_z).max(0.0);
+    let t_exit = tmax_x.min(tmax_y).min(tmax_z).min(max_t);
+
+    t_enter <= t_exit
+}
+
     // 2. Intersección con billboards (sprites planos orientados a cámara)
+    // a) Personajes de la party (7 billboards)
     for bb in &scene.billboards {
         if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
             let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
-            // Si el texel tiene alpha < 0.5, el rayo pasa de largo
             if alpha >= 0.5 {
                 closest_t = t;
                 hit_billboard = Some((bb, color, u, v));
                 hit_ground_sprite = None;
                 hit_cube = None;
+            }
+        }
+    }
+
+    // b) Humo (11 puffs): probado primero contra su AABB envolvente único
+    if ray_intersects_aabb(origin, dir, scene.smoke_aabb.0, scene.smoke_aabb.1, closest_t) {
+        for bb in &scene.smoke_billboards {
+            if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
+                let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                if alpha >= 0.5 {
+                    closest_t = t;
+                    hit_billboard = Some((bb, color, u, v));
+                    hit_ground_sprite = None;
+                    hit_cube = None;
+                }
+            }
+        }
+    }
+
+    // c) Mechones de pasto (~20): salteados en rayos secundarios (depth > 0) y acelerados por AABB envolvente único
+    if depth == 0 && ray_intersects_aabb(origin, dir, scene.grass_aabb.0, scene.grass_aabb.1, closest_t) {
+        for bb in &scene.grass_billboards {
+            if let Some((t, u, v)) = bb.intersect(origin, dir, scene.camera_forward, scene.camera_right, scene.camera_up, closest_t) {
+                let (color, alpha) = scene.textures.sample_uv_rgba(bb.texture, u, v);
+                if alpha >= 0.5 {
+                    closest_t = t;
+                    hit_billboard = Some((bb, color, u, v));
+                    hit_ground_sprite = None;
+                    hit_cube = None;
+                }
             }
         }
     }
@@ -133,11 +187,15 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
         let hit_point = origin + dir * closest_t;
 
         let (effective_sprite_color, emission) = if bb.is_smoke {
-            // Teñido cálido abajo y frío arriba según altura sobre el fuego (~3.2 a ~9.0)
+            // Solo las 2-3 primeras bolas son cálidas (altura < 1.3 sobre la llama), el resto gris claro con teñido frío
             let height_t = ((hit_point.y - 3.2) / 5.5).clamp(0.0, 1.0);
-            let warm = Vector3::new(1.15, 0.95, 0.75);
-            let cold = Vector3::new(0.70, 0.82, 1.15);
-            let tint = warm * (1.0 - height_t) + cold * height_t;
+            let tint = if height_t < 0.22 {
+                let warm_t = height_t / 0.22;
+                Vector3::new(1.15, 0.95, 0.75) * (1.0 - warm_t) + Vector3::new(0.98, 0.98, 1.0) * warm_t
+            } else {
+                let cold_t = ((height_t - 0.22) / 0.78).clamp(0.0, 1.0);
+                Vector3::new(0.98, 0.98, 1.0) * (1.0 - cold_t) + Vector3::new(0.70, 0.82, 1.12) * cold_t
+            };
             (mul_vec3(sprite_color, tint), bb.emission)
         } else {
             (sprite_color, bb.emission)
@@ -271,11 +329,6 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                     continue;
                 }
 
-                let n_dot_l = shading_normal.dot(light_dir);
-                if n_dot_l <= 0.0 {
-                    continue;
-                }
-
                 let in_shadow = if light.casts_shadow {
                     let shadow_orig = hit_point + normal * 1e-3;
                     scene.grid.is_occluded(&scene.cubes, shadow_orig, light_dir, light_dist)
@@ -284,6 +337,11 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                 };
 
                 if !in_shadow {
+                    let geom_ndotl = normal.dot(light_dir);
+                    let raw_ndotl = shading_normal.dot(light_dir);
+                    // Evitar colapso a negro en las hendiduras: piso mínimo proporcional a geom_ndotl
+                    let n_dot_l = raw_ndotl.max(geom_ndotl * 0.28);
+
                     // Atenuación suave 1 / (1 + (d/r)^2) para halo cálido y brillo en troncos
                     let norm_dist = light_dist / light.radius;
                     let attenuation = (light.intensity / (1.0 + norm_dist * norm_dist)).max(0.0);

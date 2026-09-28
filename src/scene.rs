@@ -8,7 +8,11 @@ use crate::procedural;
 
 pub struct Scene {
     pub cubes: Vec<Cube>,
-    pub billboards: Vec<Billboard>,
+    pub billboards: Vec<Billboard>, // Personajes de la party (7)
+    pub grass_billboards: Vec<Billboard>, // Mechones de pasto (~20)
+    pub smoke_billboards: Vec<Billboard>, // Puffs de humo (11)
+    pub grass_aabb: (Vector3, Vector3),
+    pub smoke_aabb: (Vector3, Vector3),
     pub ground_sprites: Vec<crate::billboard::GroundSprite>,
     pub lights: Vec<Light>,
     pub skybox: Skybox,
@@ -18,6 +22,34 @@ pub struct Scene {
     pub camera_forward: Vector3,
     pub camera_right: Vector3,
     pub camera_up: Vector3,
+}
+
+/// Calcula el AABB envolvente que engloba un conjunto de billboards con holgura
+pub fn compute_billboards_aabb(bbs: &[Billboard]) -> (Vector3, Vector3) {
+    if bbs.is_empty() {
+        return (Vector3::zero(), Vector3::zero());
+    }
+    let mut min = Vector3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY);
+    let mut max = Vector3::new(f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
+
+    for bb in bbs {
+        let half_w = bb.width * 0.5 + 0.1;
+        let bb_min_x = bb.position.x - half_w;
+        let bb_max_x = bb.position.x + half_w;
+        let bb_min_y = bb.position.y - 0.1;
+        let bb_max_y = bb.position.y + bb.height + 0.1;
+        let bb_min_z = bb.position.z - half_w;
+        let bb_max_z = bb.position.z + half_w;
+
+        min.x = min.x.min(bb_min_x);
+        min.y = min.y.min(bb_min_y);
+        min.z = min.z.min(bb_min_z);
+
+        max.x = max.x.max(bb_max_x);
+        max.y = max.y.max(bb_max_y);
+        max.z = max.z.max(bb_max_z);
+    }
+    (min, max)
 }
 
 /// Calcula la altura real del suelo en las coordenadas (x, z) buscando el bloque
@@ -88,7 +120,7 @@ impl Scene {
 
         let ground_y = terrain_height_at(&cubes, 0.0, 0.0);
         // --- Círculo de piedras alrededor de la fogata ---
-        for &(x, z) in &[(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
+        for &(x, z) in &[(-1.0, -1.0), (1.0, -1.0), (-1.25, 1.20), (1.25, 1.20)] {
             cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.5, mats.stone));
         }
 
@@ -161,17 +193,17 @@ impl Scene {
             mats.planks,
         ));
 
-        // --- 2 Gemas (refracción visible, n=1.55) a los lados del fuego ---
-        // Se aprecian desde el encuadre inicial deformando el suelo iluminado y la fogata detrás
+        // --- 2 Cristales translúcidos (cian-azulado y magenta-violeta) con refracción visible (n=1.50, t=0.60) ---
+        // Tamaño ~0.5, apoyados en el suelo a los lados del camino (x = +-0.6, z = 0.95), con la llama detrás
         cubes.push(Cube::new_box(
-            Vector3::new(-0.75, ground_y, 0.55),
-            Vector3::new(0.55, 0.55, 0.55),
-            mats.gem,
+            Vector3::new(-0.84, ground_y, 0.71),
+            Vector3::new(0.48, 0.52, 0.48),
+            mats.gem_cyan,
         ));
         cubes.push(Cube::new_box(
-            Vector3::new(0.75, ground_y, 0.55),
-            Vector3::new(0.55, 0.55, 0.55),
-            mats.gem,
+            Vector3::new(0.36, ground_y, 0.71),
+            Vector3::new(0.48, 0.52, 0.48),
+            mats.gem_magenta,
         ));
 
         // --- Luces (máximo 2: fogata con sombras + luz de relleno azul tenue sin sombras) ---
@@ -180,10 +212,8 @@ impl Scene {
             Light::sky_fill(Vector3::new(0.0, 15.0, 0.0)),
         ];
 
-        // --- Billboards de la escena: Humo, Personajes y Mechones de pasto ---
-        let mut billboards = Vec::new();
-
-        // 1. Humo con 11 billboards: bocanadas procedurales que suben desde la llama
+        // --- 1. Humo con 11 billboards: bocanadas procedurales que suben desde la llama ---
+        let mut smoke_billboards = Vec::new();
         let smoke_textures = [
             "assets/smoke_puff_0.png",
             "assets/smoke_puff_1.png",
@@ -204,16 +234,22 @@ impl Scene {
             let sz = drift_z + jitter_z;
 
             let tex = smoke_textures[i % 3];
-            let warm_emit = Vector3::new(0.20, 0.12, 0.04) * (1.0 - t).powi(2);
+            // Solo las 2-3 primeras bolas (i < 3) tienen emisión cálida, el resto gris claro
+            let warm_emit = if i < 3 {
+                Vector3::new(0.18, 0.10, 0.03) * (1.0 - i as f32 / 3.0)
+            } else {
+                Vector3::zero()
+            };
 
-            billboards.push(
+            smoke_billboards.push(
                 Billboard::new(Vector3::new(sx, sy, sz), size, size, tex)
                     .with_smoke(true)
                     .with_emission(warm_emit),
             );
         }
 
-        // 2. Personajes de pie (Billboards: Robo, Lucca, Frog, Ayla, Magus, Marle, Chrono)
+        // --- 2. Personajes de pie (Billboards: Robo, Lucca, Frog, Ayla, Magus, Marle, Chrono) ---
+        let mut party_billboards = Vec::new();
         let base_height = 1.8f32;
         let standing_party = [
             ("assets/party/Robo.png", -0.75, -2.20, 1.10),
@@ -230,28 +266,27 @@ impl Scene {
             let height = base_height * mult;
             let aspect = get_png_aspect_ratio(tex);
             let width = height * aspect;
-            billboards.push(
+            party_billboards.push(
                 Billboard::new(Vector3::new(x, y, z), width, height, tex)
                     .with_blob_shadow(true),
             );
         }
 
-        // --- Mechones de pasto en la periferia de la clarería (Billboards con textura grass_tuft) ---
+        // --- 3. Mechones de pasto en la periferia de la clarería (~20 billboards grass_tuft) ---
+        let mut grass_billboards = Vec::new();
         let tuft_positions = [
             (-2.7, 0.8), (2.8, -0.6), (-1.2, -2.8), (1.1, -2.9),
             (-2.9, -1.5), (3.1, 0.9), (-0.4, -3.2), (0.5, -3.4),
             (-3.2, 0.4), (3.3, -1.8), (-2.1, -2.6), (2.2, -2.7),
             (-2.7, -2.2), (2.9, -2.1), (-1.8, -3.0), (1.9, -3.1),
             (-3.5, 1.0), (3.6, -0.6), (-2.8, 1.9), (2.9, 1.7),
-            (-3.4, -1.1), (3.5, 1.2), (-1.9, 2.7), (2.1, 2.6),
-            (-3.1, 2.1), (3.2, 2.0),
         ];
         for (idx, &(tx, tz)) in tuft_positions.iter().enumerate() {
             let ty = terrain_height_at(&cubes, tx, tz);
             let h_var = ((idx * 37 + 11) % 10) as f32 / 9.0;
             let tuft_h = 0.35 + h_var * 0.20;
             let tuft_w = 0.50;
-            billboards.push(Billboard::new(
+            grass_billboards.push(Billboard::new(
                 Vector3::new(tx, ty, tz),
                 tuft_w,
                 tuft_h,
@@ -259,13 +294,20 @@ impl Scene {
             ));
         }
 
+        let smoke_aabb = compute_billboards_aabb(&smoke_billboards);
+        let grass_aabb = compute_billboards_aabb(&grass_billboards);
+
         let ground_sprites = Vec::new();
 
         let grid = crate::grid::VoxelGrid::build(&cubes);
 
         Scene {
             cubes,
-            billboards,
+            billboards: party_billboards,
+            grass_billboards,
+            smoke_billboards,
+            grass_aabb,
+            smoke_aabb,
             ground_sprites,
             lights,
             skybox: Skybox::night(),
@@ -290,6 +332,8 @@ impl Scene {
             "assets/leaves.png",
             "assets/fire.png",
             "assets/gem.png",
+            "assets/gem_cyan.png",
+            "assets/gem_magenta.png",
             "assets/water.png",
             "assets/straw.png",
             "assets/tuft.png",
