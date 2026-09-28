@@ -49,6 +49,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
     let mut hit_cube = None;
     let mut hit_uv = (0.0, 0.0);
     let mut hit_billboard: Option<(&crate::billboard::Billboard, Vector3, f32, f32)> = None;
+    let mut hit_ground_sprite: Option<(&crate::billboard::GroundSprite, Vector3, f32, f32)> = None;
 
     // 1. Intersección con cubos acelerada mediante Grid 3D uniforme y DDA
     if let Some((t, cube_idx, u, v)) = scene.grid.intersect_closest(&scene.cubes, origin, dir) {
@@ -57,6 +58,7 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
             hit_cube = Some(&scene.cubes[cube_idx]);
             hit_uv = (u, v);
             hit_billboard = None;
+            hit_ground_sprite = None;
         }
     }
 
@@ -69,10 +71,62 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                 if alpha >= 0.5 {
                     closest_t = t;
                     hit_billboard = Some((bb, color, u, v));
+                    hit_ground_sprite = None;
                     hit_cube = None;
                 }
             }
         }
+    }
+
+    // 3. Intersección con ground_sprites (personajes acostados horizontalmente)
+    for gs in &scene.ground_sprites {
+        if let Some((t, u, v)) = gs.intersect(origin, dir) {
+            if t < closest_t && t > 1e-4 {
+                let (color, alpha) = scene.textures.sample_uv_rgba(gs.texture, u, v);
+                if alpha >= 0.5 {
+                    closest_t = t;
+                    hit_ground_sprite = Some((gs, color, u, v));
+                    hit_billboard = None;
+                    hit_cube = None;
+                }
+            }
+        }
+    }
+
+    // Sombreado de ground_sprite (personajes acostados en el suelo)
+    if let Some((_gs, sprite_color, _u, _v)) = hit_ground_sprite {
+        let hit_point = origin + dir * closest_t;
+        let ambient_color = Vector3::new(0.12, 0.17, 0.36);
+        let ambient = mul_vec3(sprite_color, ambient_color);
+        let mut diffuse = Vector3::zero();
+
+        for light in &scene.lights {
+            let light_vec = light.position - hit_point;
+            let light_dist = light_vec.length();
+            if light_dist < 1e-4 {
+                continue;
+            }
+            let light_dir = light_vec / light_dist;
+
+            let in_shadow = if light.casts_shadow {
+                let shadow_orig = hit_point + Vector3::new(0.0, 1e-3, 0.0);
+                scene.grid.is_occluded(&scene.cubes, shadow_orig, light_dir, light_dist)
+            } else {
+                false
+            };
+
+            if !in_shadow {
+                let norm_dist = light_dist / light.radius;
+                let attenuation = (light.intensity / (1.0 + norm_dist * norm_dist)).max(0.0);
+                let normal = Vector3::new(0.0, 1.0, 0.0);
+                let n_dot_l = normal.dot(light_dir).max(0.2);
+
+                let light_contrib = mul_vec3(sprite_color, light.color) * (attenuation * n_dot_l);
+                diffuse += light_contrib;
+            }
+        }
+
+        return ambient + diffuse;
     }
 
     // Sombreado de billboard
@@ -245,6 +299,21 @@ pub fn trace_ray(scene: &Scene, origin: Vector3, dir: Vector3, depth: u32) -> Ve
                         let t = dist / radius;
                         let falloff = 1.0 - t * t * (3.0 - 2.0 * t);
                         let s = 1.0 - 0.65 * falloff;
+                        blob_shadow = blob_shadow.min(s);
+                    }
+                }
+            }
+            for gs in &scene.ground_sprites {
+                let dx = hit_point.x - gs.position.x;
+                let dz = hit_point.z - gs.position.z;
+                let dy = hit_point.y - gs.position.y;
+                if dy >= -0.15 && dy <= 0.08 {
+                    let dist = (dx * dx + dz * dz).sqrt();
+                    let radius = 0.85f32;
+                    if dist < radius {
+                        let t = dist / radius;
+                        let falloff = 1.0 - t * t * (3.0 - 2.0 * t);
+                        let s = 1.0 - 0.40 * falloff;
                         blob_shadow = blob_shadow.min(s);
                     }
                 }
