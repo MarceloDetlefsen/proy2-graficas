@@ -97,17 +97,17 @@ impl Scene {
             Vector3::new(-0.45, ground_y, -0.45),
             Vector3::new(0.90, 0.48, 0.90),
             mats.fire_base,
-        ).with_tile_uv(false));
+        ).without_shadow().with_tile_uv(false));
         cubes.push(Cube::new_box(
             Vector3::new(-0.30, ground_y + 0.45, -0.30),
             Vector3::new(0.60, 0.42, 0.60),
             mats.fire_mid,
-        ).with_tile_uv(false));
+        ).without_shadow().with_tile_uv(false));
         cubes.push(Cube::new_box(
             Vector3::new(-0.175, ground_y + 0.84, -0.175),
             Vector3::new(0.35, 0.38, 0.35),
             mats.fire_top,
-        ).with_tile_uv(false));
+        ).without_shadow().with_tile_uv(false));
 
         // --- Brasas: 7 cubos diminutos (~0.08) emisivos flotando sobre el fuego ---
         let ember_offsets = [
@@ -127,50 +127,36 @@ impl Scene {
             ).without_shadow().with_tile_uv(false));
         }
 
-        // --- Humo: 7 cubos grises translúcidos subiendo hasta ~6 bloques, creciendo progresivamente ---
-        let smoke_steps = [
-            (-0.04, ground_y + 1.45, 0.02, 0.45),
-            (0.06, ground_y + 2.15, 0.07, 0.60),
-            (0.14, ground_y + 2.90, 0.14, 0.78),
-            (0.25, ground_y + 3.75, 0.22, 0.98),
-            (0.38, ground_y + 4.65, 0.32, 1.18),
-            (0.52, ground_y + 5.60, 0.44, 1.38),
-            (0.68, ground_y + 6.60, 0.58, 1.58),
-        ];
-        for &(sx, sy, sz, ss) in &smoke_steps {
+        // --- Humo: 8 cubos translúcidos subiendo con dispersión y ligera emisión propia ---
+        for i in 0..8 {
+            let t = i as f32 / 7.0;
+            let sy = ground_y + 1.40 + t * 5.2;
+            let ss = 0.45 + t * 1.15; // de 0.45 a 1.60
+
+            // Deriva lateral continua suave hacia +X y +Z
+            let drift_x = t * 0.55;
+            let drift_z = t * 0.45;
+
+            // Desplazamiento determinístico ±0.15-0.25 para romper la columna recta
+            let jitter_x = ((i * 17 + 5) % 9) as f32 / 8.0 * 0.40 - 0.20;
+            let jitter_z = ((i * 23 + 3) % 9) as f32 / 8.0 * 0.40 - 0.20;
+
+            let sx = drift_x + jitter_x;
+            let sz = drift_z + jitter_z;
+
+            let mat = if i <= 2 {
+                mats.smoke_base
+            } else if i <= 5 {
+                mats.smoke
+            } else {
+                mats.smoke_top
+            };
+
             cubes.push(Cube::new_box(
                 Vector3::new(sx - ss * 0.5, sy, sz - ss * 0.5),
                 Vector3::new(ss, ss * 0.85, ss),
-                mats.smoke,
+                mat,
             ).without_shadow().with_tile_uv(false));
-        }
-
-        // --- Pasto verde-amarillo: mechones en grupos de 3 hojas finas (~0.08) ---
-        let tuft_coords = [
-            (-1.4, 0.6), (-0.8, -1.5), (1.5, -0.9), (0.7, 1.6),
-            (-1.8, -1.1), (1.9, 0.8), (-0.5, 1.8), (1.6, -1.6),
-            (-1.2, 1.3), (0.9, -1.8), (-1.9, 0.3), (1.8, 1.4),
-            (-0.7, -1.9), (1.3, 1.7), (-1.6, -0.6), (1.7, -0.4),
-            (-2.6, 1.2), (2.8, -1.1), (-1.2, 2.8), (1.1, -2.9),
-            (-2.9, -1.5), (3.1, 0.9), (-0.4, 3.2), (0.5, -3.3),
-            (-3.2, 0.4), (3.3, -1.8), (-2.1, 2.6), (2.2, -2.7),
-            (-2.7, -2.2), (2.9, 2.1), (-1.8, -3.0), (1.9, 3.1),
-            (-3.5, 1.0), (3.6, -0.6), (-0.9, 3.5), (1.0, -3.6),
-        ];
-        for &(tx, tz) in &tuft_coords {
-            let ty = terrain_height_at(&cubes, tx, tz);
-            let blade_offsets = [
-                (-0.04, -0.03, 0.46),
-                (0.04, -0.02, 0.35),
-                (0.00, 0.04, 0.27),
-            ];
-            for &(bx, bz, bh) in &blade_offsets {
-                cubes.push(Cube::new_box(
-                    Vector3::new(tx + bx - 0.04, ty, tz + bz - 0.04),
-                    Vector3::new(0.08, bh, 0.08),
-                    mats.tuft,
-                ).without_shadow().with_tile_uv(false));
-            }
         }
 
         // --- Troncos horizontales para sentarse (~2x0.5x0.5 con textura bark y mapa normal) ---
@@ -228,6 +214,8 @@ impl Scene {
             ("assets/party/Frog.png", -2.40, -0.10, 0.75),
             ("assets/party/Ayla.png", 2.35, -0.10, 1.00),
             ("assets/party/Magus.png", 4.20, -1.60, 1.05),
+            ("assets/party/Marle.png", -1.65, 1.85, 0.95),
+            ("assets/party/Chrono.png", 1.65, 1.85, 1.00),
         ];
 
         for &(tex, x, z, mult) in &standing_party {
@@ -238,42 +226,30 @@ impl Scene {
             billboards.push(Billboard::new(Vector3::new(x, y, z), width, height, tex));
         }
 
-        // --- Personajes acostados al frente (GroundSprite: Marle y Chrono) ---
-        let mut ground_sprites = Vec::new();
+        // --- Mechones de pasto en la periferia de la clarería (Billboards con textura grass_tuft) ---
+        let tuft_positions = [
+            (-2.7, 0.8), (2.8, -0.6), (-1.2, -2.8), (1.1, -2.9),
+            (-2.9, -1.5), (3.1, 0.9), (-0.4, -3.2), (0.5, -3.4),
+            (-3.2, 0.4), (3.3, -1.8), (-2.1, -2.6), (2.2, -2.7),
+            (-2.7, -2.2), (2.9, -2.1), (-1.8, -3.0), (1.9, -3.1),
+            (-3.5, 1.0), (3.6, -0.6), (-2.8, 1.9), (2.9, 1.7),
+            (-3.4, -1.1), (3.5, 1.2), (-1.9, 2.7), (2.1, 2.6),
+            (-3.1, 2.1), (3.2, 2.0),
+        ];
+        for (idx, &(tx, tz)) in tuft_positions.iter().enumerate() {
+            let ty = terrain_height_at(&cubes, tx, tz);
+            let h_var = ((idx * 37 + 11) % 10) as f32 / 9.0;
+            let tuft_h = 0.35 + h_var * 0.20;
+            let tuft_w = 0.50;
+            billboards.push(Billboard::new(
+                Vector3::new(tx, ty, tz),
+                tuft_w,
+                tuft_h,
+                "assets/grass_tuft.png",
+            ));
+        }
 
-        // Chrono: al frente a la derecha, acostado con la cabeza hacia el fuego
-        let chrono_tex = "assets/party/Chrono.png";
-        let chrono_h = base_height * 1.00;
-        let chrono_w = chrono_h * get_png_aspect_ratio(chrono_tex);
-        let chrono_x = 1.35f32;
-        let chrono_z = 1.85f32;
-        let chrono_y = terrain_height_at(&cubes, chrono_x, chrono_z) + 0.03;
-        let to_fire_chrono = Vector3::new(-chrono_x, 0.0, -chrono_z).normalized();
-        let angle_chrono = to_fire_chrono.x.atan2(to_fire_chrono.z);
-        ground_sprites.push(crate::billboard::GroundSprite::new(
-            Vector3::new(chrono_x, chrono_y, chrono_z),
-            chrono_w,
-            chrono_h,
-            angle_chrono,
-            chrono_tex,
-        ));
-
-        // Marle: al frente a la izquierda, acostada con la cabeza hacia el fuego
-        let marle_tex = "assets/party/Marle.png";
-        let marle_h = base_height * 0.95;
-        let marle_w = marle_h * get_png_aspect_ratio(marle_tex);
-        let marle_x = -1.35f32;
-        let marle_z = 1.85f32;
-        let marle_y = terrain_height_at(&cubes, marle_x, marle_z) + 0.03;
-        let to_fire_marle = Vector3::new(-marle_x, 0.0, -marle_z).normalized();
-        let angle_marle = to_fire_marle.x.atan2(to_fire_marle.z);
-        ground_sprites.push(crate::billboard::GroundSprite::new(
-            Vector3::new(marle_x, marle_y, marle_z),
-            marle_w,
-            marle_h,
-            angle_marle,
-            marle_tex,
-        ));
+        let ground_sprites = Vec::new();
 
         let grid = crate::grid::VoxelGrid::build(&cubes);
 
@@ -307,6 +283,7 @@ impl Scene {
             "assets/water.png",
             "assets/straw.png",
             "assets/tuft.png",
+            "assets/grass_tuft.png",
             "assets/planks.png",
             "assets/party/Chrono.png",
             "assets/party/Marle.png",

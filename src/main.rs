@@ -50,7 +50,10 @@ fn main() {
     };
 
     let args: Vec<String> = std::env::args().collect();
-    let headless = args.iter().any(|a| a == "--screenshot");
+    let log_normal = args.iter().any(|a| a == "--log-normal");
+    let log_nonormal = args.iter().any(|a| a == "--log-nonormal");
+    let smoke_view = args.iter().any(|a| a == "--smoke");
+    let headless = args.iter().any(|a| a == "--screenshot") || log_normal || log_nonormal || smoke_view;
     let rotated = args.iter().any(|a| a == "--rotated");
     let elevated = args.iter().any(|a| a == "--elevated");
     let closeup = args.iter().any(|a| a == "--closeup");
@@ -60,12 +63,32 @@ fn main() {
     let mut scene = Scene::campfire_diorama();
     scene.load_textures(&mut rl, &thread);
 
-    let mut camera = if closeup {
-        // Primer plano de Marle acostada con cámara rotada ~90 grados
-        let ground_y = scene::terrain_height_at(&scene.cubes, -1.35, 1.85);
+    if log_nonormal {
+        scene.use_normal_maps = false;
+    }
+
+    let _ground_y = scene::terrain_height_at(&scene.cubes, 0.0, 0.0);
+
+    let mut camera = if log_normal || log_nonormal {
+        // Primer plano de un tronco de asiento (Log 3 a X=1.35..1.85, Y=3.0..3.45, Z=-0.9..0.9)
         Camera::new(
-            Vector3::new(-4.2, ground_y + 2.4, 1.85),
-            Vector3::new(-1.35, ground_y + 0.1, 1.85),
+            Vector3::new(0.55, 3.55, 0.00),
+            Vector3::new(1.60, 3.22, 0.00),
+            Vector3::new(0.0, 1.0, 0.0),
+        )
+    } else if smoke_view {
+        // Vista de cerca del humo mirando desde abajo hacia arriba contra las estrellas
+        Camera::new(
+            Vector3::new(0.00, 3.20, 1.20),
+            Vector3::new(0.25, 6.80, 0.20),
+            Vector3::new(0.0, 1.0, 0.0),
+        )
+    } else if closeup {
+        // Primer plano de Marle acostada con cámara rotada ~90 grados
+        let marle_gy = scene::terrain_height_at(&scene.cubes, -1.84, 1.54);
+        Camera::new(
+            Vector3::new(-4.2, marle_gy + 2.2, 1.54),
+            Vector3::new(-1.84, marle_gy + 0.1, 1.54),
             Vector3::new(0.0, 1.0, 0.0),
         )
     } else if elevated {
@@ -185,7 +208,8 @@ fn main() {
             let start = std::time::Instant::now();
             render(&scene, &camera, &mut framebuffer, 1);
             let elapsed = start.elapsed();
-            println!("Render (reposo full res): {:.2} ms (cubos: {})", elapsed.as_secs_f64() * 1000.0, scene.cubes.len());
+            println!("Render (reposo full res): {:.2} ms (cubos: {}, billboards: {}, ground_sprites: {})",
+                elapsed.as_secs_f64() * 1000.0, scene.cubes.len(), scene.billboards.len(), scene.ground_sprites.len());
             let _ = render_texture.update_texture(framebuffer_as_bytes(&framebuffer));
             needs_fullres = false;
             is_moving = false;
@@ -198,7 +222,13 @@ fn main() {
                         img.draw_pixel(x, y, framebuffer[(y * WIDTH + x) as usize]);
                     }
                 }
-                let out_file = if closeup {
+                let out_file = if log_normal {
+                    "screenshot_log_normal.png"
+                } else if log_nonormal {
+                    "screenshot_log_nonormal.png"
+                } else if smoke_view {
+                    "screenshot_smoke.png"
+                } else if closeup {
                     "screenshot_closeup.png"
                 } else if elevated {
                     "screenshot_elevated.png"
