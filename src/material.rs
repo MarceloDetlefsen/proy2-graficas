@@ -105,6 +105,14 @@ pub struct SceneMaterials {
     pub gem_magenta: Material,// cristal magenta-violeta saturado
     pub water: Material,     // charco -> reflexión (+ refracción opcional)
     pub straw: Material,     // círculo de paja alrededor de la fogata
+    pub cloth: Material,     // lona de carpa
+    pub gate_ring: Material, // anillo de portal azul-cian emisivo
+    pub metal: Material,     // metal pulido (Masamune, casco)
+    pub gold: Material,      // oro / bronce (empuñadura, visor)
+    pub firefly: Material,   // luciérnaga emisiva
+    pub pot_iron: Material,  // hierro oscuro para olla
+    pub pot_rim: Material,   // borde metálico de olla con brillo cálido
+    pub pendant: Material,   // colgante azul brillante de Marle (Easter egg)
 }
 
 impl SceneMaterials {
@@ -172,10 +180,11 @@ impl SceneMaterials {
                 .with_reflectivity(0.15)
                 .with_refraction(0.85, 1.55),
 
-            gem_cyan: Material::new(Vector3::new(0.15, 0.75, 1.0), 80.0)
+            gem_cyan: Material::new(Vector3::new(0.08, 0.85, 1.0), 90.0)
                 .with_texture("assets/gem_cyan.png")
-                .with_reflectivity(0.18)
-                .with_refraction(0.60, 1.50),
+                .with_reflectivity(0.20)
+                .with_refraction(0.60, 1.50)
+                .with_emission(Vector3::new(0.06, 0.28, 0.40)),
 
             gem_magenta: Material::new(Vector3::new(0.95, 0.18, 0.85), 80.0)
                 .with_texture("assets/gem_magenta.png")
@@ -189,6 +198,31 @@ impl SceneMaterials {
 
             straw: Material::new(Vector3::new(0.65, 0.50, 0.25), 3.0)
                 .with_texture("assets/straw.png"),
+
+            cloth: Material::new(Vector3::new(0.20, 0.28, 0.22), 2.0)
+                .with_texture("assets/cloth.png"),
+
+            gate_ring: Material::new(Vector3::new(0.10, 0.70, 1.00), 25.0)
+                .with_emission(Vector3::new(0.12, 0.65, 0.95)),
+
+            metal: Material::new(Vector3::new(0.7, 0.75, 0.8), 60.0)
+                .with_reflectivity(0.3),
+
+            gold: Material::new(Vector3::new(0.9, 0.75, 0.2), 40.0)
+                .with_reflectivity(0.2),
+
+            firefly: Material::new(Vector3::new(0.8, 1.0, 0.4), 10.0)
+                .with_emission(Vector3::new(0.9, 1.0, 0.3)),
+
+            pot_iron: Material::new(Vector3::new(0.16, 0.16, 0.18), 45.0)
+                .with_reflectivity(0.15),
+
+            pot_rim: Material::new(Vector3::new(0.42, 0.28, 0.16), 25.0)
+                .with_emission(Vector3::new(0.18, 0.09, 0.02)),
+
+            pendant: Material::new(Vector3::new(0.15, 0.60, 1.00), 50.0)
+                .with_emission(Vector3::new(0.08, 0.28, 0.50))
+                .with_reflectivity(0.35),
         }
     }
 }
