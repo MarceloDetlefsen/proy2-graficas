@@ -103,10 +103,10 @@ impl TextureManager {
     /// sin interpolación para conservar la estética pixel-art nítida.
     pub fn sample_uv_rgba(&self, path: &str, u: f32, v: f32) -> (Vector3, f32) {
         if let Some(cpu_texture) = self.cpu_textures.get(path) {
-            let u_clamped = u.rem_euclid(1.0).clamp(0.0, 0.99999);
-            let v_clamped = v.rem_euclid(1.0).clamp(0.0, 0.99999);
-            let x = (u_clamped * cpu_texture.width as f32).floor() as i32;
-            let y = (v_clamped * cpu_texture.height as f32).floor() as i32;
+            let u_clamped = if u >= 0.0 && u < 1.0 { u } else { u.rem_euclid(1.0).clamp(0.0, 0.99999) };
+            let v_clamped = if v >= 0.0 && v < 1.0 { v } else { v.rem_euclid(1.0).clamp(0.0, 0.99999) };
+            let x = (u_clamped * cpu_texture.width as f32) as i32;
+            let y = (v_clamped * cpu_texture.height as f32) as i32;
 
             let x = x.clamp(0, cpu_texture.width - 1);
             let y = y.clamp(0, cpu_texture.height - 1);

@@ -32,6 +32,12 @@ pub fn generate_all_assets() {
     generate_if_missing("assets/smoke_puff_0.png", gen_smoke_puff_0);
     generate_if_missing("assets/smoke_puff_1.png", gen_smoke_puff_1);
     generate_if_missing("assets/smoke_puff_2.png", gen_smoke_puff_2);
+    generate_if_missing("assets/fern.png", gen_fern_texture);
+    generate_if_missing("assets/mushroom.png", gen_mushroom_texture);
+    generate_if_missing("assets/cloth.png", gen_cloth_texture);
+    generate_if_missing("assets/tent.png", gen_tent_texture);
+    generate_if_missing("assets/gate_vortex.png", gen_gate_vortex_texture);
+    generate_if_missing("assets/gate_glint.png", gen_gate_glint_texture);
 
     generate_if_missing("assets/party/hero.png", gen_hero_sprite);
     generate_if_missing("assets/party/mage.png", gen_mage_sprite);
@@ -872,4 +878,232 @@ fn fill_rect(img: &mut Image, x_start: i32, y_start: i32, w: i32, h: i32, color:
             }
         }
     }
+}
+
+/// Helecho de bosque (24x24 px, frondas arqueadas verde oliva y puntas desaturadas con alpha recortado)
+fn gen_fern_texture() -> Image {
+    let mut img = Image::gen_image_color(24, 24, Color::BLANK);
+    let dark_green = Color::new(28, 62, 22, 255);
+    let mid_green = Color::new(52, 108, 38, 255);
+    let tip_green = Color::new(95, 142, 54, 255);
+
+    // Fronda central arqueada
+    for y in 4..24 {
+        let x = 12 + (((y - 4) as f32 * 0.15).sin() * 2.0) as i32;
+        let c = if y < 8 { tip_green } else if y < 16 { mid_green } else { dark_green };
+        img.draw_pixel(x, y, c);
+        // Hojas laterales
+        let len = ((24 - y) as f32 * 0.35).min(5.0) as i32;
+        for dx in 1..=len {
+            if x - dx >= 0 { img.draw_pixel(x - dx, y - dx / 2, mid_green); }
+            if x + dx < 24 { img.draw_pixel(x + dx, y - dx / 2, mid_green); }
+        }
+    }
+    // Fronda izquierda inclinada
+    for y in 8..24 {
+        let x = 12 - (24 - y) * 8 / 16;
+        let c = if y < 13 { tip_green } else { dark_green };
+        if x >= 0 { img.draw_pixel(x, y, c); }
+        for dy in 1..=3 {
+            if x - 1 >= 0 && y - dy >= 0 { img.draw_pixel(x - 1, y - dy, mid_green); }
+        }
+    }
+    // Fronda derecha inclinada
+    for y in 8..24 {
+        let x = 12 + (24 - y) * 8 / 16;
+        let c = if y < 13 { tip_green } else { dark_green };
+        if x < 24 { img.draw_pixel(x, y, c); }
+        for dy in 1..=3 {
+            if x + 1 < 24 && y - dy >= 0 { img.draw_pixel(x + 1, y - dy, mid_green); }
+        }
+    }
+    img
+}
+
+/// Hongos pequeños luminiscentes (16x16 px con sombreretes azul-celeste brillante y leve brillo)
+fn gen_mushroom_texture() -> Image {
+    let mut img = Image::gen_image_color(16, 16, Color::BLANK);
+    let stem = Color::new(210, 200, 180, 255);
+    let cap_glow = Color::new(120, 225, 255, 255);
+    let cap_mid = Color::new(45, 140, 220, 255);
+    let cap_dark = Color::new(20, 75, 150, 255);
+
+    // Hongo 1 (grande, centro-izquierda)
+    fill_rect(&mut img, 5, 8, 2, 8, stem);
+    fill_rect(&mut img, 3, 5, 6, 4, cap_mid);
+    fill_rect(&mut img, 4, 4, 4, 2, cap_glow);
+    img.draw_pixel(3, 8, cap_dark);
+    img.draw_pixel(8, 8, cap_dark);
+
+    // Hongo 2 (pequeño, derecha)
+    fill_rect(&mut img, 11, 10, 2, 6, stem);
+    fill_rect(&mut img, 10, 8, 4, 3, cap_mid);
+    fill_rect(&mut img, 11, 7, 2, 2, cap_glow);
+    img
+}
+
+/// Tela de lona rústica para carpa de campamento (32x32 px con tejido sutil)
+fn gen_cloth_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::new(45, 60, 50, 255));
+    for y in 0..32 {
+        for x in 0..32 {
+            let weave = (x + y) % 2 == 0;
+            let h = hash2d(x, y, 707);
+            let c = if (x % 16 == 0 || y % 16 == 0) && h > 0.4 {
+                Color::new(75, 95, 75, 255) // Costura / borde de parche
+            } else if weave {
+                Color::new(52, 70, 58, 255) // Trama de tejido claro
+            } else {
+                Color::new(38, 52, 44, 255) // Urdimbre oscura
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+/// Carpa de campamento triangular (40x36 px, lona ocre-roja apagada, entrada oscura, costuras y alpha)
+fn gen_tent_texture() -> Image {
+    let w = 40;
+    let h = 36;
+    let mut img = Image::gen_image_color(w, h, Color::BLANK);
+    let apex_x = 20.0f32;
+    let apex_y = 2.0f32;
+
+    for y in 2..35 {
+        let t = (y as f32 - apex_y) / (34.0 - apex_y);
+        let half_w = t * 18.0;
+        let left_x = (apex_x - half_w).round() as i32;
+        let right_x = (apex_x + half_w).round() as i32;
+
+        for x in left_x..=right_x {
+            if x < 0 || x >= w {
+                continue;
+            }
+            let is_edge = x == left_x || x == right_x || y == 34;
+            let is_center_seam = x == 20;
+
+            // Entrada triangular oscura al centro inferior
+            let in_doorway = y >= 17 && (x - 20).abs() <= ((y - 17) * 7 / 17);
+
+            let c = if in_doorway {
+                // Interior oscuro de la carpa
+                if y == 17 || (x - 20).abs() == ((y - 17) * 7 / 17) {
+                    Color::new(95, 40, 25, 255) // Solapa / borde de entrada
+                } else {
+                    Color::new(24, 20, 22, 255) // Interior umbrío
+                }
+            } else if is_edge {
+                Color::new(125, 50, 30, 255) // Borde perimetral reforzado
+            } else if is_center_seam {
+                Color::new(210, 115, 75, 255) // Costura central iluminada
+            } else if y % 9 == 0 {
+                Color::new(145, 62, 38, 255) // Costura horizontal
+            } else if x < 20 {
+                // Faceta izquierda ligeramente más iluminada (ocre rojizo)
+                let noise = (hash2d(x, y, 311) * 20.0 - 10.0) as i32;
+                Color::new(
+                    (185 + noise).clamp(0, 255) as u8,
+                    (88 + noise / 2).clamp(0, 255) as u8,
+                    (52 + noise / 3).clamp(0, 255) as u8,
+                    255,
+                )
+            } else {
+                // Faceta derecha en sombra tenue
+                let noise = (hash2d(x, y, 419) * 20.0 - 10.0) as i32;
+                Color::new(
+                    (155 + noise).clamp(0, 255) as u8,
+                    (70 + noise / 2).clamp(0, 255) as u8,
+                    (42 + noise / 3).clamp(0, 255) as u8,
+                    255,
+                )
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+
+    // Estacas de anclaje de madera en la base
+    img.draw_pixel(2, 35, Color::new(85, 55, 30, 255));
+    img.draw_pixel(37, 35, Color::new(85, 55, 30, 255));
+
+    img
+}
+
+/// Remolino cósmico del portal del tiempo (Gate, 32x32 px con espiral azul-cian limpia, sin marrones)
+fn gen_gate_vortex_texture() -> Image {
+    let mut img = Image::gen_image_color(32, 32, Color::BLANK);
+    let cx = 15.5f32;
+    let cy = 15.5f32;
+
+    for y in 0..32 {
+        for x in 0..32 {
+            let dx = x as f32 + 0.5 - cx;
+            let dy = y as f32 + 0.5 - cy;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist > 14.5 {
+                continue;
+            }
+
+            let angle = dy.atan2(dx);
+            let spiral = (angle * 3.0 + dist * 0.8).sin();
+            let dither = (x + y) % 2 == 0;
+
+            // Borde exterior con dithering transparente (alpha 0)
+            if dist > 12.2 && !dither {
+                continue;
+            }
+
+            // Exclusivamente gama celeste y cian puro (sin sombras oscuras ni marrones)
+            let c = if dist < 3.2 {
+                Color::new(235, 255, 255, 255) // Núcleo celestial resplandeciente
+            } else if spiral > 0.25 {
+                Color::new(65, 220, 255, 255)  // Brazo espiral celeste brillante
+            } else if spiral > -0.28 {
+                Color::new(25, 160, 245, 255)  // Flujo cian intermedio
+            } else {
+                Color::new(12, 105, 210, 255)  // Azul cósmico puro del vórtice
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
+}
+
+/// Destello tenue del portal del tiempo (Easter egg discreto entre árboles lejanos, 24x24 px)
+fn gen_gate_glint_texture() -> Image {
+    let mut img = Image::gen_image_color(24, 24, Color::BLANK);
+    let cx = 11.5f32;
+    let cy = 11.5f32;
+
+    for y in 0..24 {
+        for x in 0..24 {
+            let dx = x as f32 + 0.5 - cx;
+            let dy = y as f32 + 0.5 - cy;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist > 10.5 {
+                continue;
+            }
+
+            // Rayos de estrella en cruz
+            let is_cross_ray = (dx.abs() <= 1.0 && dist <= 8.5) || (dy.abs() <= 1.0 && dist <= 8.5);
+            let dither = (x + y) % 2 == 0;
+
+            // Borde exterior con dithering a alpha 0
+            if dist > 6.5 && !is_cross_ray && !dither {
+                continue;
+            }
+
+            let c = if dist < 2.5 {
+                Color::new(65, 215, 255, 255)  // Núcleo cian saturado (sin blanco)
+            } else if dist < 4.5 || (is_cross_ray && dist < 6.0) {
+                Color::new(35, 175, 250, 255)  // Brillo celeste intermedio
+            } else if is_cross_ray || dist < 7.0 {
+                Color::new(20, 130, 225, 255)  // Halo azul celeste
+            } else {
+                Color::new(12, 80, 190, 255)   // Borde exterior azul cósmico tenue
+            };
+            img.draw_pixel(x, y, c);
+        }
+    }
+    img
 }
