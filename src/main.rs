@@ -61,8 +61,8 @@ fn main() {
 
     let mut camera = if elevated {
         Camera::new(
-            Vector3::new(9.0, 10.0, 4.5),
-            Vector3::new(0.0, 2.0, 0.5),
+            Vector3::new(2.5, 12.5, 10.5),
+            Vector3::new(0.0, 2.5, 0.0),
             Vector3::new(0.0, 1.0, 0.0),
         )
     } else if rotated {

@@ -71,18 +71,99 @@ impl Scene {
         );
         cubes.extend(terrain);
 
-        // --- Árboles (4 esquinas, como en la referencia de Chrono Trigger) ---
-        for &(x, z) in &[(-6.0, -6.0), (6.0, -6.0), (-6.0, 6.0), (6.0, 6.0)] {
+        // --- Árboles gigantes (5-6 árboles en anillo alrededor de la clarería, radio ~7-9) ---
+        let tree_configs = [
+            (-6.5, -6.5, 0),
+            (6.5, -6.5, 1),
+            (-7.5, -0.5, 2),
+            (7.5, -0.5, 0),
+            (-6.0, 5.5, 1),
+            (6.0, 5.5, 2),
+        ];
+        for &(x, z, variant) in &tree_configs {
             let tree_y = terrain_height_at(&cubes, x, z);
-            cubes.extend(Self::tree(Vector3::new(x, tree_y, z), &mats));
+            cubes.extend(Self::giant_tree(Vector3::new(x, tree_y, z), variant, &mats));
         }
 
         let ground_y = terrain_height_at(&cubes, 0.0, 0.0);
-        // --- Círculo de piedras + fogata al centro (emisivo) ---
+        // --- Círculo de piedras alrededor de la fogata ---
         for &(x, z) in &[(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
             cubes.push(Cube::new(Vector3::new(x, ground_y, z), 0.5, mats.stone));
         }
-        cubes.push(Cube::new(Vector3::new(-0.25, ground_y, -0.25), 0.5, mats.campfire));
+
+        // --- Fuego con forma: 3 cubos emisivos apilados y decrecientes (~0.9, 0.6, 0.35) ---
+        cubes.push(Cube::new_box(
+            Vector3::new(-0.45, ground_y, -0.45),
+            Vector3::new(0.90, 0.48, 0.90),
+            mats.fire_base,
+        ).with_tile_uv(false));
+        cubes.push(Cube::new_box(
+            Vector3::new(-0.30, ground_y + 0.45, -0.30),
+            Vector3::new(0.60, 0.42, 0.60),
+            mats.fire_mid,
+        ).with_tile_uv(false));
+        cubes.push(Cube::new_box(
+            Vector3::new(-0.175, ground_y + 0.84, -0.175),
+            Vector3::new(0.35, 0.38, 0.35),
+            mats.fire_top,
+        ).with_tile_uv(false));
+
+        // --- Brasas: 7 cubos diminutos (~0.08) emisivos flotando sobre el fuego ---
+        let ember_offsets = [
+            (0.10, ground_y + 1.30, -0.08, 0.08),
+            (-0.14, ground_y + 1.55, 0.10, 0.07),
+            (0.06, ground_y + 1.82, 0.14, 0.08),
+            (-0.08, ground_y + 2.10, -0.12, 0.06),
+            (0.15, ground_y + 2.38, -0.04, 0.08),
+            (-0.10, ground_y + 2.68, 0.11, 0.07),
+            (0.04, ground_y + 2.98, -0.07, 0.06),
+        ];
+        for &(ex, ey, ez, es) in &ember_offsets {
+            cubes.push(Cube::new_box(
+                Vector3::new(ex - es * 0.5, ey, ez - es * 0.5),
+                Vector3::new(es, es, es),
+                mats.ember,
+            ).without_shadow().with_tile_uv(false));
+        }
+
+        // --- Humo: 7 cubos grises translúcidos (transparency ~0.75, IOR 1.0) subiendo hasta ~6 bloques ---
+        let smoke_steps = [
+            (-0.04, ground_y + 1.45, 0.02, 0.35),
+            (0.06, ground_y + 2.10, 0.07, 0.45),
+            (0.14, ground_y + 2.80, 0.14, 0.55),
+            (0.25, ground_y + 3.55, 0.22, 0.65),
+            (0.38, ground_y + 4.35, 0.32, 0.75),
+            (0.52, ground_y + 5.18, 0.44, 0.85),
+            (0.68, ground_y + 6.05, 0.58, 0.95),
+        ];
+        for &(sx, sy, sz, ss) in &smoke_steps {
+            cubes.push(Cube::new_box(
+                Vector3::new(sx - ss * 0.5, sy, sz - ss * 0.5),
+                Vector3::new(ss, ss * 0.85, ss),
+                mats.smoke,
+            ).without_shadow().with_tile_uv(false));
+        }
+
+        // --- Pasto amarillo: ~36 mechones dispersos en círculo de paja y borde de clarería ---
+        let tuft_coords = [
+            (-1.4, 0.6), (-0.8, -1.5), (1.5, -0.9), (0.7, 1.6),
+            (-1.8, -1.1), (1.9, 0.8), (-0.5, 1.8), (1.6, -1.6),
+            (-1.2, 1.3), (0.9, -1.8), (-1.9, 0.3), (1.8, 1.4),
+            (-0.7, -1.9), (1.3, 1.7), (-1.6, -0.6), (1.7, -0.4),
+            (-2.6, 1.2), (2.8, -1.1), (-1.2, 2.8), (1.1, -2.9),
+            (-2.9, -1.5), (3.1, 0.9), (-0.4, 3.2), (0.5, -3.3),
+            (-3.2, 0.4), (3.3, -1.8), (-2.1, 2.6), (2.2, -2.7),
+            (-2.7, -2.2), (2.9, 2.1), (-1.8, -3.0), (1.9, 3.1),
+            (-3.5, 1.0), (3.6, -0.6), (-0.9, 3.5), (1.0, -3.6),
+        ];
+        for &(tx, tz) in &tuft_coords {
+            let ty = terrain_height_at(&cubes, tx, tz);
+            cubes.push(Cube::new_box(
+                Vector3::new(tx - 0.075, ty, tz - 0.075),
+                Vector3::new(0.15, 0.40, 0.15),
+                mats.tuft,
+            ).without_shadow().with_tile_uv(false));
+        }
 
         // --- Cristales/gemas tirados cerca de la fogata (refracción + reflexión) ---
         for &(x, z) in &[(-2.0, 0.5), (2.2, -0.8), (0.7, 1.7)] {
@@ -91,7 +172,7 @@ impl Scene {
 
         // --- Luces (máximo 2: fogata con sombras + luz de relleno azul tenue sin sombras) ---
         let lights = vec![
-            Light::campfire(Vector3::new(0.0, ground_y + 0.8, 0.0)),
+            Light::campfire(Vector3::new(0.0, ground_y + 1.30, 0.0)),
             Light::sky_fill(Vector3::new(0.0, 15.0, 0.0)),
         ];
 
@@ -155,6 +236,7 @@ impl Scene {
             "assets/gem.png",
             "assets/water.png",
             "assets/straw.png",
+            "assets/tuft.png",
             "assets/party/Chrono.png",
             "assets/party/Marle.png",
             "assets/party/Lucca.png",
@@ -168,23 +250,98 @@ impl Scene {
         }
     }
 
-    /// Genera un árbol simple: tronco recto + copa de hojas.
-    fn tree(base: Vector3, mats: &SceneMaterials) -> Vec<Cube> {
+    /// Genera un árbol gigante con tronco 2x2, raíces en la base y copas oscuras apiladas en capas.
+    /// Con UV tiling, los bloques grandes de tronco y follaje repiten la textura cada 1 unidad en vez de estirarla.
+    fn giant_tree(base: Vector3, variant: usize, mats: &SceneMaterials) -> Vec<Cube> {
         let mut parts = Vec::new();
-        for i in 0..3 {
-            parts.push(Cube::new(base + Vector3::new(0.0, i as f32, 0.0), 1.0, mats.bark));
-        }
-        for dx in -1..=1 {
-            for dz in -1..=1 {
-                for dy in 0..2 {
-                    parts.push(Cube::new(
-                        base + Vector3::new(dx as f32, 3.0 + dy as f32, dz as f32),
-                        1.0,
-                        mats.leaves,
-                    ));
-                }
+
+        let (trunk_h, leaf_mat) = match variant {
+            0 => (6.5f32, mats.leaves),
+            1 => (7.0f32, mats.leaves_alt),
+            _ => (6.0f32, mats.leaves),
+        };
+
+        // Tronco grueso 2x2 de 6 a 7 bloques de alto (1 solo cubo con UV tiling)
+        parts.push(Cube::new_box(
+            Vector3::new(base.x - 1.0, base.y, base.z - 1.0),
+            Vector3::new(2.0, trunk_h, 2.0),
+            mats.bark,
+        ));
+
+        // Raíces: cubos de ~1x1 que ensanchan la base del tronco
+        parts.push(Cube::new_box(
+            Vector3::new(base.x - 1.9, base.y, base.z - 0.5),
+            Vector3::new(0.9, 1.1, 1.0),
+            mats.bark,
+        ));
+        parts.push(Cube::new_box(
+            Vector3::new(base.x + 1.0, base.y, base.z - 0.5),
+            Vector3::new(0.9, 0.9, 1.0),
+            mats.bark,
+        ));
+        parts.push(Cube::new_box(
+            Vector3::new(base.x - 0.5, base.y, base.z - 1.9),
+            Vector3::new(1.0, 1.0, 0.9),
+            mats.bark,
+        ));
+        parts.push(Cube::new_box(
+            Vector3::new(base.x - 0.5, base.y, base.z + 1.0),
+            Vector3::new(1.0, 0.8, 0.9),
+            mats.bark,
+        ));
+
+        // Copas oscuras en 2-3 capas apiladas y de distinto ancho
+        match variant {
+            0 => {
+                // Capa inferior ancha 6x2x6
+                parts.push(Cube::new_box(
+                    Vector3::new(base.x - 3.0, base.y + trunk_h - 1.0, base.z - 3.0),
+                    Vector3::new(6.0, 2.0, 6.0),
+                    leaf_mat,
+                ));
+                // Capa superior 4x2x4
+                parts.push(Cube::new_box(
+                    Vector3::new(base.x - 2.0, base.y + trunk_h + 1.0, base.z - 2.0),
+                    Vector3::new(4.0, 2.0, 4.0),
+                    leaf_mat,
+                ));
+            }
+            1 => {
+                // Capa inferior 5x2x6
+                parts.push(Cube::new_box(
+                    Vector3::new(base.x - 2.5, base.y + trunk_h - 1.2, base.z - 3.0),
+                    Vector3::new(5.0, 2.0, 6.0),
+                    leaf_mat,
+                ));
+                // Capa media 4x1.8x4
+                parts.push(Cube::new_box(
+                    Vector3::new(base.x - 2.0, base.y + trunk_h + 0.8, base.z - 2.0),
+                    Vector3::new(4.0, 1.8, 4.0),
+                    leaf_mat,
+                ));
+                // Cúpula superior 2.5x1.5x2.5
+                parts.push(Cube::new_box(
+                    Vector3::new(base.x - 1.25, base.y + trunk_h + 2.6, base.z - 1.25),
+                    Vector3::new(2.5, 1.5, 2.5),
+                    leaf_mat,
+                ));
+            }
+            _ => {
+                // Capa inferior 5.5x2x5.5
+                parts.push(Cube::new_box(
+                    Vector3::new(base.x - 2.75, base.y + trunk_h - 0.8, base.z - 2.75),
+                    Vector3::new(5.5, 2.0, 5.5),
+                    leaf_mat,
+                ));
+                // Capa superior 3.5x2x3.5
+                parts.push(Cube::new_box(
+                    Vector3::new(base.x - 1.75, base.y + trunk_h + 1.2, base.z - 1.75),
+                    Vector3::new(3.5, 2.0, 3.5),
+                    leaf_mat,
+                ));
             }
         }
+
         parts
     }
 }
