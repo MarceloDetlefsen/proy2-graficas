@@ -10,7 +10,8 @@ Raytracer CPU 3D desarrollado desde cero en Rust con `raylib`, renderizando un d
 
 ## Demostración
 
-[![Demostración del Raytracer - Haz clic para ver video](Demostración.gif)](https://drive.google.com/file/d/11IWve0pnPVX7EOyiQ6PGLqtsD2ye_G_y/view?usp=sharing)
+[![Demostración del Raytracer - Haz clic para ver video](Demostración.gif)](https://drive.google.com/file/d/11IWve0pnPVX7EOyiQ6PGLqtsD2ye_G_y/view?usp=sharing)  
+<sub>*(Haz clic en el GIF para ver el video completo)*</sub>
 
 ## Screenshots
 
