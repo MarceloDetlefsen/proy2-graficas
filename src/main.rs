@@ -230,9 +230,11 @@ fn main() {
     let arroyo_on = args.iter().any(|a| a == "--arroyo-on");
     let arroyo_off = args.iter().any(|a| a == "--arroyo-off");
     let elevated = args.iter().any(|a| a == "--elevated" || a == "--toma2");
+    let overview = args.iter().any(|a| a == "--overview");
     let frames_arg = args.iter().position(|a| a == "--frames").and_then(|idx| args.get(idx + 1)).and_then(|s| s.parse::<usize>().ok());
     let moving_mode = args.iter().any(|a| a == "--moving");
     let headless = args.iter().any(|a| a == "--screenshot")
+        || overview
         || check_layout
         || docs_mode
         || f1_gem
@@ -289,6 +291,8 @@ fn main() {
         arroyo_camera()
     } else if elevated {
         preset_2_camera()
+    } else if overview {
+        Camera::new(Vector3::new(0.50, 10.0, 16.5), Vector3::new(0.50, 4.20, -0.60), Vector3::new(0.0, 1.0, 0.0))
     } else {
         preset_1_camera()
     };
@@ -681,6 +685,8 @@ fn main() {
                     "screenshot_arroyo_off.png"
                 } else if elevated {
                     "screenshot_elevated.png"
+                } else if overview {
+                    "screenshot_overview.png"
                 } else {
                     "screenshot.png"
                 };

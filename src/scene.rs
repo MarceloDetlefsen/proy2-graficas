@@ -160,12 +160,33 @@ impl Scene {
             (5.4, 8.5, 8.0f32),
             (7.8, 8.6, 7.8f32),
         ];
-        for &(px, pz, ph) in &perimeter_trunks {
+        for (i, &(px, pz, ph)) in perimeter_trunks.iter().enumerate() {
             let py = terrain_only_height_at(&cubes, px, pz);
             cubes.push(Cube::new_box(
                 Vector3::new(px - 0.5, py, pz - 0.5),
                 Vector3::new(1.0, ph, 1.0),
                 mats.bark,
+            ).as_tree());
+
+            // Copa para cada árbol perimetral (capas apiladas proporcionadas al tronco 1x1)
+            let top_y = py + ph;
+            let leaf_mat = if i % 2 == 0 { mats.leaves } else { mats.leaves_alt };
+            let (w1, h1, w2, h2) = match i % 3 {
+                0 => (2.6f32, 1.6f32, 1.8f32, 1.4f32),
+                1 => (2.8f32, 1.8f32, 2.0f32, 1.2f32),
+                _ => (2.4f32, 1.6f32, 1.6f32, 1.4f32),
+            };
+
+            cubes.push(Cube::new_box(
+                Vector3::new(px - w1 * 0.5, top_y - 0.8, pz - w1 * 0.5),
+                Vector3::new(w1, h1, w1),
+                leaf_mat,
+            ).as_tree());
+
+            cubes.push(Cube::new_box(
+                Vector3::new(px - w2 * 0.5, top_y - 0.8 + h1, pz - w2 * 0.5),
+                Vector3::new(w2, h2, w2),
+                leaf_mat,
             ).as_tree());
         }
 
@@ -713,18 +734,10 @@ impl Scene {
             ).as_tree());
         }
 
-        // Copas oscuras en capas apiladas con chimenea de cielo:
-        // Ningún cubo de copa se coloca en x in [-2.5, 2.5], z in [-9.0, 2.0]
+        // Copas oscuras en capas apiladas
         let top_y = min_h + total_trunk_h;
         let mut push_canopy_cube = |pos: Vector3, size: Vector3| {
-            let min_x = pos.x;
-            let max_x = pos.x + size.x;
-            let min_z = pos.z;
-            let max_z = pos.z + size.z;
-            let in_chimney = max_x > -2.5 && min_x < 2.5 && max_z > -9.0 && min_z < 2.0;
-            if !in_chimney {
-                parts.push(Cube::new_box(pos, size, leaf_mat).as_tree());
-            }
+            parts.push(Cube::new_box(pos, size, leaf_mat).as_tree());
         };
 
         match variant {
