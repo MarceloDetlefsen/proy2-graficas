@@ -4,9 +4,13 @@ Raytracer CPU 3D desarrollado desde cero en Rust con `raylib`, renderizando un d
 
 | Render del Raytracer (Encuadre Inicial) | Diorama de Referencia e Inspiración |
 |:---:|:---:|
-| ![Encuadre Inicial](docs/screenshots/01_encuadre_inicial.png) | ![Diorama de Inspiración](docs/Reference_image.webp) |
+| ![Encuadre Inicial](docs/screenshots/01_encuadre_inicial.png) | ![Diorama de Inspiración](docs/reference_image.webp) |
 
 ---
+
+## Demostración
+
+[![Demostración del Raytracer - Haz clic para ver video](Demostración.gif)](https://drive.google.com/file/d/11IWve0pnPVX7EOyiQ6PGLqtsD2ye_G_y/view?usp=sharing)
 
 ## Screenshots
 
